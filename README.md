@@ -13,7 +13,7 @@ Mô tả: Ngắt xảy ra liên tục khi nút bấm được giữ (chân GPIO 
 Tình huống: Khi nhấn nút, LED sẽ sáng liên tục cho đến khi nhả nút.
 Ví dụ thực tế:
 Nút bấm nối chân GPIO với mức thấp (GND) khi nhấn.
-// ISR cho ngắt LOW
+```// ISR cho ngắt LOW
 void GPIO_ISR() {
     turnOnLED(); // Bật LED khi nút bấm giữ.
 }
@@ -24,7 +24,7 @@ Tình huống: LED chỉ sáng khi nút được giữ ở trạng thái logic c
 Ví dụ thực tế:
 Nút bấm nối chân GPIO với mức cao (VCC) khi nhấn.
 
-// ISR cho ngắt HIGH
+```// ISR cho ngắt HIGH
 void GPIO_ISR() {
     turnOnLED(); // Bật LED khi nút giữ ở mức cao.
 }
@@ -34,7 +34,7 @@ Mô tả: Ngắt xảy ra một lần khi trạng thái trên chân GPIO chuyể
 Tình huống: LED sáng một lần ngay khi nút được nhấn xuống.
 Ví dụ thực tế:
 Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.3V hoặc 5V).
-// ISR cho ngắt RISING
+```// ISR cho ngắt RISING
 void GPIO_ISR() {
     toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
 }
@@ -45,14 +45,14 @@ Tình huống: LED sáng một lần ngay khi nút được nhấn xuống.
 Ví dụ thực tế:
 Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.3V hoặc 5V).
 
-// ISR cho ngắt RISING
+```// ISR cho ngắt RISING
 void GPIO_ISR() {
     toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
 }
 Hiệu quả: LED đổi trạng thái mỗi khi nhấn nút.
 ### Ngắt timer
 Ngắt Timer là một loại ngắt trong vi điều khiển xảy ra khi bộ đếm thời gian (Timer) đạt đến một giá trị xác định trước (thường là giá trị tràn hoặc so sánh). Ngắt Timer được sử dụng để thực hiện các tác vụ theo chu kỳ mà không cần CPU liên tục theo dõi trạng thái Timer.
-í dụ đơn giản: Điều khiển LED nhấp nháy bằng ngắt Timer
+ví dụ đơn giản: Điều khiển LED nhấp nháy bằng ngắt Timer
 Giả sử:
 
 LED được nối vào chân GPIO.
@@ -61,7 +61,7 @@ Bạn muốn LED nhấp nháy (bật/tắt) mỗi giây bằng ngắt Timer.
 Sử dụng Timer 0 của vi điều khiển.
 Thiết lập Timer đếm từ 0 và tạo ngắt khi đạt đến giá trị tràn.
 
-#include <avr/io.h>        // Thư viện cho vi điều khiển AVR
+```#include <avr/io.h>        // Thư viện cho vi điều khiển AVR
 #include <avr/interrupt.h> // Thư viện hỗ trợ ngắt
 
 #define LED_PIN PB0        // LED nối với chân PB0
@@ -105,7 +105,7 @@ Mô tả:
 Một vi điều khiển nhận dữ liệu từ máy tính qua giao tiếp UART (RS-232).
 Mỗi khi một byte dữ liệu được nhận, ngắt UART sẽ được kích hoạt để lưu dữ liệu vào bộ đệm (buffer).
 
-#include <avr/io.h>
+```#include <avr/io.h>
 #include <avr/interrupt.h>
 
 #define BUFFER_SIZE 64

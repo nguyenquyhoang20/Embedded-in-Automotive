@@ -16,7 +16,7 @@ Nút bấm nối chân GPIO với mức thấp (GND) khi nhấn.
 ```// ISR cho ngắt LOW
 void GPIO_ISR() {
     turnOnLED(); // Bật LED khi nút bấm giữ.
-}
+}```
 Hiệu quả: LED bật liên tục khi nhấn giữ nút.
 #### HIGH (Mức cao)
 Mô tả: Ngắt xảy ra liên tục khi chân GPIO ở mức logic cao.
@@ -27,7 +27,7 @@ Nút bấm nối chân GPIO với mức cao (VCC) khi nhấn.
 ```// ISR cho ngắt HIGH
 void GPIO_ISR() {
     turnOnLED(); // Bật LED khi nút giữ ở mức cao.
-}
+}```
 Hiệu quả: LED bật liên tục khi nút được nhấn giữ.
 #### RISING (Chuyển từ thấp lên cao)
 Mô tả: Ngắt xảy ra một lần khi trạng thái trên chân GPIO chuyển từ thấp lên cao.
@@ -37,7 +37,7 @@ Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.
 ```// ISR cho ngắt RISING
 void GPIO_ISR() {
     toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
-}
+}```
 Hiệu quả: LED đổi trạng thái mỗi khi nhấn nút.
 #### RISING (Chuyển từ thấp lên cao)
 Mô tả: Ngắt xảy ra một lần khi trạng thái trên chân GPIO chuyển từ thấp lên cao.
@@ -48,7 +48,7 @@ Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.
 ```// ISR cho ngắt RISING
 void GPIO_ISR() {
     toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
-}
+}```
 Hiệu quả: LED đổi trạng thái mỗi khi nhấn nút.
 ### Ngắt timer
 Ngắt Timer là một loại ngắt trong vi điều khiển xảy ra khi bộ đếm thời gian (Timer) đạt đến một giá trị xác định trước (thường là giá trị tràn hoặc so sánh). Ngắt Timer được sử dụng để thực hiện các tác vụ theo chu kỳ mà không cần CPU liên tục theo dõi trạng thái Timer.
@@ -92,7 +92,7 @@ int main() {
     while (1) {
         // Chương trình chính (không cần làm gì)
     }
-}
+}```
 
 Kết quả:
 LED sẽ nhấp nháy liên tục mà không cần CPU kiểm tra thủ công, giúp tiết kiệm tài nguyên hệ thống.
@@ -136,7 +136,8 @@ int main() {
     while (1) {
         // Xử lý khác hoặc chờ đợi dữ liệu (bộ đệm tự nhận dữ liệu qua ngắt)
     }
-}
+}```
+
 Giải thích chi tiết:
 Cấu hình UART:
 

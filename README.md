@@ -1,154 +1,110 @@
 # Embedded-in-Automotive
 # Interrupt - Timer
-## Định nghĩa ngắt
-gắt là 1 sự kiện khẩn cấp xảy ra trong hay ngoài vi điều khiển. Nó yêu cầu MCU phải dừng chương trình chính và thực thi chương trình ngắt (trình phục vụ ngắt).
-## Các ngắt thông dụng
-Mỗi ngắt sẽ có 1 trình phục vụ ngắt riêng
-Trình phục vụ ngắt (Interrupt Service Routine - ISR) là một đoạn chương trình được thực hiện khi ngắt xảy ra.
-Địa chỉ trong bộ nhớ của ISR được gọi là vector ngắt
-## Các ngắt thông dụng 
-### Ngắt ngoài
-#### LOW (Mức thấp)
-Mô tả: Ngắt xảy ra liên tục khi nút bấm được giữ (chân GPIO ở mức logic thấp).
-Tình huống: Khi nhấn nút, LED sẽ sáng liên tục cho đến khi nhả nút.
-Ví dụ thực tế:
-Nút bấm nối chân GPIO với mức thấp (GND) khi nhấn.
-```// ISR cho ngắt LOW
-void GPIO_ISR() {
-    turnOnLED(); // Bật LED khi nút bấm giữ.
-}```
-Hiệu quả: LED bật liên tục khi nhấn giữ nút.
-#### HIGH (Mức cao)
-Mô tả: Ngắt xảy ra liên tục khi chân GPIO ở mức logic cao.
-Tình huống: LED chỉ sáng khi nút được giữ ở trạng thái logic cao.
-Ví dụ thực tế:
-Nút bấm nối chân GPIO với mức cao (VCC) khi nhấn.
+Ngắt là một sự kiện khẩn cấp xảy ra bên trong hoặc bên ngoài vi điều khiển, yêu cầu dừng chương trình chính để thực thi chương trình xử lý ngắt.
+Các loại ngắt thông dụng:
+Bao gồm ngắt Reset, ngắt ngoài, ngắt Timer1, và ngắt truyền thông. 
+### Hàm phục vụ ngắt :
+Mỗi ngắt có địa chỉ trình phục vụ ngắt riêng trong bộ nhớ, được gọi là vector ngắt.
+Ngắt ngoài:
+Xảy ra khi có thay đổi điện áp trên các chân GPIO được cấu hình làm ngõ vào ngắt. Các kiểu kích hoạt ngắt gồm LOW, HIGH, Rising, và Falling.
+### Ngắt Timer:
+Xảy ra khi giá trị trong thanh ghi đếm của timer bị tràn. Sau mỗi lần tràn, cần phải reset giá trị thanh ghi để có thể tạo ngắt tiếp theo.
+Ngắt truyền thông:
+Xảy ra khi có sự kiện truyền/nhận dữ liệu giữa MCU và các thiết bị khác, thường sử dụng cho các giao thức như UART, SPI, I2C.
+Độ ưu tiên ngắt:
+Các ngắt có độ ưu tiên khác nhau, quyết định ngắt nào được thực thi khi nhiều ngắt xảy ra đồng thời. Trên STM32, ngắt có số ưu tiên càng thấp thì có quyền càng cao.
+Giải thích về cơ chế hoạt động của chương trình (Thanh Ghi PC) khi xảy ra ngắt lồng nhau.
+### Timer:
+Timer là mạch digital logic dùng để đếm các chu kỳ clock, có thể hoạt động ở chế độ nhận xung clock từ tín hiệu ngoài. 
+Timer trong Stm32F1: 
+### Cấu hình Timer:
+Các thông số như Prescaler, Period, và Clock Division được cấu hình để điều chỉnh cách thức đếm của Timer.
+Ví dụ cấu hình timer với thư viện STD.
+Ví dụ: Hàm delay_ms:
+Được thiết kế để tạo ra khoảng trễ chính xác bằng cách sử dụng Timer. Với cài đặt cụ thể, Timer sẽ đếm lên mỗi 0.1ms và lặp lại số lần cần thiết để tạo độ trễ.
+Cung cấp kiến thức cơ bản và hướng dẫn cấu hình ngắt và Timer trên vi điều khiển.
+# Lý thuyết các chuẩn giao tiếp cơ bản
+## SPI
+### SPI – Serial Peripheral Interface – hay còn gọi là giao diện ngoại vi nối tiếp, được phát triển bởi hãng Motorola. 
+Chuẩn đồng bộ nối truyền dữ liệu ở chế độ full - duplex (hay gọi là "song công toàn phần". Nghĩa là tại 1 thời điểm có thể xảy ra đồng thời quá trình truyền và nhận. Là giao tiếp đồng bộ, bất cứ quá trình nào cũng đều được đồng bộ với xung clock sinh ra bởi thiết bị Master  
+Tốc độ truyền thông cao: SPI cho phép truyền dữ liệu với tốc độ rất nhanh, thường đạt được tốc độ Mbps hoặc thậm chí hàng chục Mbps. Điều này rất hữu ích khi cần truyền dữ liệu nhanh và đáng tin cậy trong các ứng dụng như truyền thông không dây, điều khiển từ xa và truyền dữ liệu đa phương tiện.
 
-```// ISR cho ngắt HIGH
-void GPIO_ISR() {
-    turnOnLED(); // Bật LED khi nút giữ ở mức cao.
-}```
-Hiệu quả: LED bật liên tục khi nút được nhấn giữ.
-#### RISING (Chuyển từ thấp lên cao)
-Mô tả: Ngắt xảy ra một lần khi trạng thái trên chân GPIO chuyển từ thấp lên cao.
-Tình huống: LED sáng một lần ngay khi nút được nhấn xuống.
-Ví dụ thực tế:
-Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.3V hoặc 5V).
-```// ISR cho ngắt RISING
-void GPIO_ISR() {
-    toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
-}```
-Hiệu quả: LED đổi trạng thái mỗi khi nhấn nút.
-#### RISING (Chuyển từ thấp lên cao)
-Mô tả: Ngắt xảy ra một lần khi trạng thái trên chân GPIO chuyển từ thấp lên cao.
-Tình huống: LED sáng một lần ngay khi nút được nhấn xuống.
-Ví dụ thực tế:
-Khi nhấn nút, trạng thái chân GPIO chuyển từ thấp (0V) lên cao (3.3V hoặc 5V).
+### SPI sử dụng 4 đường giao tiếp nên đôi khi được gọi là chuẩn truyền thông “ 4 dây”:
+- SCK (Serial Clock): Thiết bị Master tạo xung tín hiệu SCK và cung cấp cho Slave. Xung này có chức năng giữ nhịp cho giao tiếp SPI. Mỗi nhịp trên chân SCK báo 1 bit dữ liệu đến hoặc đi → Quá trình ít bị lỗi và tốc độ truyền cao.
+- MISO (Master Input Slave Output): Tín hiệu tạo bởi thiết bị Slave và nhận bởi thiết bị Master. Đường MISO phải được kết nối giữa thiết bị Master và Slave.
+- MOSI (Master Output Slave Input): Tín hiệu tạo bởi thiết bị Master và nhận bởi thiết bị Slave. Đường MOSI phải được kết nối giữa thiết bị Master và Slave.
+- SS (Slave Select): Chọn thiết bị Slave cụ thể để giao tiếp. Để chọn Slave giao tiếp thiết bị Master chủ động kéo đường SS tương ứng xuống mức 0 (Low). Chân này đôi khi còn được gọi là CS (Chip Select). Chân SS của vi điều khiển (Master) có thể được người dùng tạo bằng cách cấu hình 1 chân GPIO bất kỳ chế độ Output.
+  
+    SPI cho phép 1 MCU chủ giao tiếp với nhiều thiết bị tớ thông qua tín hiệu chọn thiết bị SS. Các thiết bị tớ chỉ có thể có 1 chân CS để nhận tín hiệu chọn này, tuy nhiên thiết bị chủ có thể có nhiều hơn 1 chân SS để chọn từng thiết bị muốn giao tiếp.
 
-```// ISR cho ngắt RISING
-void GPIO_ISR() {
-    toggleLED(); // Đổi trạng thái LED (bật/tắt mỗi lần nhấn nút).
-}```
-Hiệu quả: LED đổi trạng thái mỗi khi nhấn nút.
-### Ngắt timer
-Ngắt Timer là một loại ngắt trong vi điều khiển xảy ra khi bộ đếm thời gian (Timer) đạt đến một giá trị xác định trước (thường là giá trị tràn hoặc so sánh). Ngắt Timer được sử dụng để thực hiện các tác vụ theo chu kỳ mà không cần CPU liên tục theo dõi trạng thái Timer.
-ví dụ đơn giản: Điều khiển LED nhấp nháy bằng ngắt Timer
-Giả sử:
 
-LED được nối vào chân GPIO.
-Bạn muốn LED nhấp nháy (bật/tắt) mỗi giây bằng ngắt Timer.
-1. Cấu hình ngắt Timer:
-Sử dụng Timer 0 của vi điều khiển.
-Thiết lập Timer đếm từ 0 và tạo ngắt khi đạt đến giá trị tràn.
+### Khung truyền SPI:
+- Mỗi chip Master hay Slave đều có một thanh ghi dữ liệu 8 bits. Quá trình truyền nhận giữa Master và Slave xảy ra đồng thời theo chu kỳ clock ở chân CLK, một byte dữ liệu được truyền theo cả 2 hướng 
+- Quá trình trao đổi dữ liệu bắt đầu khi Master tạo 1 xung clock từ bộ tạo xung nhịp (Clock Generator) và kéo đường SS của Slave mà nó truyền dữ liệu xuống mức Low. Mỗi xung clock, Master sẽ gửi đi 1 bit từ thanh ghi dịch (Shift Register) của nó đến thanh ghi dịch của Slave thông qua đường MOSI. Đồng thời Slave cũng gửi lại 1 bit đến cho Master qua đường MISO.Như vậy sau 8 chu kỳ clock thì hoàn tất việc truyền và nhận 1 byte dữ liệu.
+- Trong giao tiếp SPI, chỉ có thể có 1 Master nhưng có thể 1 hoặc nhiều Slave cùng lúc. Ở trạng thái nghỉ, chân SS của các Slave ở mức 1, muốn giao tiếp với Slave nào thì ta chỉ việc kéo chân SS của Slave đó xuống mức 0.
 
-```#include <avr/io.h>        // Thư viện cho vi điều khiển AVR
-#include <avr/interrupt.h> // Thư viện hỗ trợ ngắt
+### Chế độ hoạt động: 
+    SPI có 4 chế độ hoạt động phụ thuộc vào cực của xung giữ (Clock Polarity – CPOL) và pha (Phase - CPHA). CPOL dùng để chỉ trạng thái của chân SCK ở trạng thái nghỉ. Chân SCK giữ ở mức cao khi CPOL=1 hoặc mức thấp khi CPOL=0. CPHA dùng để chỉ các mà dữ liệu được lấy mẫu theo xung. Dữ liệu sẽ được lấy ở cạnh lên của SCK khi CPHA=0 hoặc cạnh xuống khi CPHA=1.
 
-#define LED_PIN PB0        // LED nối với chân PB0
+- Mode 0 (mặc định) – xung nhịp của đồng hồ ở mức thấp (CPOL = 0) và dữ liệu được lấy mẫu khi chuyển từ thấp sang cao (cạnh lên) (CPHA = 0). 
+- Mode 1 - xung nhịp của đồng hồ ở mức thấp (CPOL = 0) và dữ liệu được lấy mẫu khi chuyển từ cao sang thấp (cạnh xuống) (CPHA = 1).
+- Mode 2 - xung nhịp của đồng hồ ở mức cao (CPOL = 1) và dữ liệu được lấy mẫu khi chuyển từ cao sang thấp (cạnh lên) (CPHA = 0).
+- Mode 3 - xung nhịp của đồng hồ ở mức cao (CPOL = 1) và dữ liệu được lấy mẫu khi chuyển từ thấp sang cao (cạnh xuông) (CPHA = 1).
 
-void setup_timer() {
-    // Cấu hình Timer 0
-    TCCR0A = 0;                    // Chế độ Normal (đếm thông thường)
-    TCCR0B |= (1 << CS02) | (1 << CS00); // Prescaler = 1024
-    TIMSK0 |= (1 << TOIE0);        // Cho phép ngắt tràn Timer 0
-    TCNT0 = 0;                     // Đặt giá trị đếm ban đầu là 0
-}
+## UART
 
-void setup_gpio() {
-    DDRB |= (1 << LED_PIN);        // Cấu hình PB0 là ngõ ra
-}
+    UART (Universal Asynchronous Receiver-Transmitter – Bộ truyền nhận dữ liệu không đồng bộ) là một giao thức truyền thông phần cứng dùng giao tiếp nối tiếp không đồng bộ và có thể cấu hình được tốc độ
+    Giao thức UART là một giao thức đơn giản và phổ biến, bao gồm hai đường truyền dữ liệu độc lập là TX (truyền) và RX (nhận). Dữ liệu được truyền và nhận qua các đường truyền này dưới dạng các khung dữ liệu (data frame) có cấu trúc chuẩn, với một bit bắt đầu (start bit), một số bit dữ liệu (data bits), một bit kiểm tra chẵn lẻ (parity bit) và một hoặc nhiều bit dừng (stop bit).
 
-ISR(TIMER0_OVF_vect) {
-    // ISR cho ngắt tràn Timer 0
-    PORTB ^= (1 << LED_PIN);       // Đổi trạng thái LED (Bật/Tắt)
-    TCNT0 = 0;                     // Đặt lại giá trị Timer
-}
+    Thông thường, tốc độ truyền của UART được đặt ở một số chuẩn, chẳng hạn như 9600, 19200, 38400, 57600, 115200 baud và các tốc độ khác. Tốc độ truyền này định nghĩa số lượng bit được truyền qua mỗi giây. Các tốc độ truyền khác nhau thường được sử dụng tùy thuộc vào ứng dụng và hệ thống sử dụng.
+Uart truyền dữ liệu nối tiếp, theo 1 trong 3 chế độ:
+- Simplex: Chỉ tiến hành giao tiếp một chiều
+- Half duplex: Dữ liệu sẽ đi theo một hướng tại 1 thời điểm
+- Full duplex: Thực hiện giao tiếp đồng thời đến và đi từ mỗi master và slave
+    Chân Tx (truyền) của một chip sẽ kết nối trực tiếp với chân Rx (nhận) của chip khác và ngược lại. Quá trình truyền dữ liệu thường sẽ diễn ra ở 3.3V hoặc 5V. Uart là một giao thức giao tiếp giữa một master và một slave. Trong đó 1 thiết bị được thiết lập để tiến hành giao tiếp với chỉ duy nhất 1 thiết bị khác.
+    Dữ liệu truyền đến và đi từ Uart song song với thiết bị điều khiển. Khi tín hiệu gửi trên chân Tx (truyền), bộ giao tiếp Uart đầu tiên sẽ dịch thông tin song song này thành dạng nối tiếp và sau đó truyền tới thiết bị nhận. Chân Rx (nhận) của Uart thứ 2 sẽ biến đổi nó trở lại thành dạng song song để giao tiếp với các thiết bị điều khiển.
+Dữ liệu truyền qua Uart sẽ đóng thành các gói (packet). Mỗi gói dữ liệu chứa 1 bit bắt đầu, 5 – 9 bit dữ liệu (tùy thuộc vào bộ Uart), 1 bit chẵn lẻ tùy chọn và 1 bit hoặc 2 bit dừng.
 
-int main() {
-    setup_gpio();                  // Cấu hình chân GPIO
-    setup_timer();                 // Cấu hình Timer
-    sei();                         // Cho phép ngắt toàn cục
+    Quá trình truyền dữ liệu Uart sẽ diễn ra dưới dạng các gói dữ liệu này, bắt đầu bằng 1 bit bắt đầu, đường mức cao được kéo dần xuống thấp. Sau bit bắt đầu là 5 – 9 bit dữ liệu truyền trong khung dữ liệu của gói, theo sau là bit chẵn lẻ tùy chọn để nhằm xác minh việc truyền dữ liệu thích hợp. Sau cùng, 1 hoặc nhiều bit dừng sẽ được truyền ở nơi đường đặt tại mức cao. Vậy là sẽ kết thúc việc truyền đi một gói dữ liệu
+  
+##  I2C.
 
-    while (1) {
-        // Chương trình chính (không cần làm gì)
-    }
-}```
+I2C kết hợp các tính năng tốt nhất của SPI và UART. Giống như giao tiếp UART, I2C chỉ sử dụng hai dây để truyền dữ liệu giữa các thiết bị:
+- SDA (Serial Data) - đường truyền cho master và slave để gửi và nhận dữ liệu.
+- SCL (Serial Clock) - đường mang tín hiệu xung nhịp.
+- I2C là một giao thức truyền thông nối tiếp, vì vậy dữ liệu được truyền từng bit dọc theo một đường duy nhất (đường SDA).
+ Giống như SPI, I2C là đồng bộ, do đó đầu ra của các bit được đồng bộ hóa với việc lấy mẫu các bit bởi một tín hiệu xung nhịp được chia sẻ giữa master và slave. Tín hiệu xung nhịp luôn được điều khiển bởi master.
+Với I2C, dữ liệu được truyền trong các tin nhắn. Tin nhắn được chia thành các khung dữ liệu. Mỗi tin nhắn có một khung địa chỉ chứa địa chỉ nhị phân của địa chỉ slave và một hoặc nhiều khung dữ liệu chứa dữ liệu đang được truyền. Thông điệp cũng bao gồm điều kiện khởi động và điều kiện dừng, các bit đọc / ghi và các bit ACK / NACK giữa mỗi khung dữ liệu:
 
-Kết quả:
-LED sẽ nhấp nháy liên tục mà không cần CPU kiểm tra thủ công, giúp tiết kiệm tài nguyên hệ thống.
-### Ngắt truyền thông
-Ngắt truyền thông là một loại ngắt xảy ra khi thiết bị giao tiếp (như UART, SPI, I2C) hoàn thành việc gửi hoặc nhận dữ liệu. Khi có dữ liệu cần xử lý (ví dụ: một byte vừa được nhận qua cổng truyền thông), một ngắt sẽ được kích hoạt, và CPU sẽ tạm dừng chương trình chính để xử lý sự kiện này.
-Ngắt truyền thông giúp tránh việc CPU phải liên tục kiểm tra trạng thái của cổng truyền thông (polling), giúp hệ thống hoạt động hiệu quả hơn.
+- Điều kiện khởi động: Đường SDA chuyển từ mức điện áp cao xuống mức điện áp thấp trước khi đường SCL chuyển từ mức cao xuống mức thấp.
+- Điều kiện dừng: Đường SDA chuyển từ mức điện áp thấp sang mức điện áp cao sau khi đường SCL chuyển từ mức thấp lên mức cao.
+- Khung địa chỉ: Một chuỗi 7 hoặc 10 bit duy nhất cho mỗi slave để xác định slave khi master muốn giao tiếp với nó.
+- Bit Đọc / Ghi: Một bit duy nhất chỉ định master đang gửi dữ liệu đến slave (mức điện áp thấp) hay yêu cầu dữ liệu từ nó (mức điện áp cao).
+- Bit ACK / NACK: Mỗi khung trong một tin nhắn được theo sau bởi một bit xác nhận / không xác nhận. Nếu một khung địa chỉ hoặc khung dữ liệu được nhận thành công, một bit ACK sẽ được trả lại cho thiết bị gửi từ thiết bị nhận.
+### Địa chỉ
+    I2C không có các đường Slave Select như SPI, vì vậy cần một cách khác để cho slave biết rằng dữ liệu đang được gửi đến slave này chứ không phải slave khác. Nó thực hiện điều này bằng cách định địa chỉ. Khung địa chỉ luôn là khung đầu tiên sau bit khởi động.
+    Master gửi địa chỉ của slave mà nó muốn giao tiếp với mọi slave được kết nối với nó. Sau đó, mỗi slave sẽ so sánh địa chỉ được gửi từ master với địa chỉ của chính nó. Nếu địa chỉ phù hợp, nó sẽ gửi lại một bit ACK điện áp thấp cho master. Nếu địa chỉ không khớp, slave không làm gì cả và đường SDA vẫn ở mức cao.
+### Bit đọc / ghi
+    Khung địa chỉ bao gồm một bit duy nhất ở cuối tin nhắn cho slave biết master muốn ghi dữ liệu vào nó hay nhận dữ liệu từ nó. Nếu master muốn gửi dữ liệu đến slave, bit đọc / ghi ở mức điện áp thấp. Nếu master đang yêu cầu dữ liệu từ slave, thì bit ở mức điện áp cao.
+### Khung dữ liệu
+    Sau khi master phát hiện bit ACK từ slave, khung dữ liệu đầu tiên đã sẵn sàng được gửi.
+    Khung dữ liệu luôn có độ dài 8 bit và được gửi với bit quan trọng nhất trước. Mỗi khung dữ liệu ngay sau đó là một bit ACK / NACK để xác minh rằng khung đã được nhận thành công. Bit ACK phải được nhận bởi master hoặc slave (tùy thuộc vào cái nào đang gửi dữ liệu) trước khi khung dữ liệu tiếp theo có thể được gửi.
+ 
+Sau khi tất cả các khung dữ liệu đã được gửi, master có thể gửi một điều kiện dừng cho slave để tạm dừng quá trình truyền. Điều kiện dừng là sự chuyển đổi điện áp từ thấp lên cao trên đường SDA sau khi chuyển tiếp từ thấp lên cao trên đường SCL , với đường SCL vẫn ở mức cao.
+ 
+## Các bước truyền dữ liệu I2C
+1. Master gửi điều kiện khởi động đến mọi slave được kết nối bằng cách chuyển đường SDA từ mức điện áp cao sang mức điện áp thấp trước khi chuyển đường SCL từ mức cao xuống mức thấp.
+2. Master gửi cho mỗi slave địa chỉ 7 hoặc 10 bit của slave mà nó muốn giao tiếp, cùng với bit đọc / ghi.
+3. Mỗi slave sẽ so sánh địa chỉ được gửi từ master với địa chỉ của chính nó. Nếu địa chỉ trùng khớp, slave sẽ trả về một bit ACK bằng cách kéo dòng SDA xuống thấp cho một bit. Nếu địa chỉ từ master không khớp với địa chỉ của slave, slave rời khỏi đường SDA cao.
+4. Master gửi hoặc nhận khung dữ liệu.
+5. Sau khi mỗi khung dữ liệu được chuyển, thiết bị nhận trả về một bit ACK khác cho thiết bị gửi để xác nhận đã nhận thành công khung.
+6. Để dừng truyền dữ liệu, master gửi điều kiện dừng đến slave bằng cách chuyển đổi mức cao SCL trước khi chuyển mức cao SDA.
 
-Ví dụ đơn giản: Nhận dữ liệu qua UART bằng ngắt
-Mô tả:
-Một vi điều khiển nhận dữ liệu từ máy tính qua giao tiếp UART (RS-232).
-Mỗi khi một byte dữ liệu được nhận, ngắt UART sẽ được kích hoạt để lưu dữ liệu vào bộ đệm (buffer).
+### Một master với nhiều slave
+    Vì I2C sử dụng định địa chỉ nên nhiều slave có thể được điều khiển từ một master duy nhất. Với địa chỉ 7 bit sẽ có 128 (2 mũ 7) địa chỉ duy nhất. Việc sử dụng địa chỉ 10 bit không phổ biến, nhưng nó cung cấp 1.024 (2 mũ 10) địa chỉ duy nhất.
 
-```#include <avr/io.h>
-#include <avr/interrupt.h>
 
-#define BUFFER_SIZE 64
-volatile char rx_buffer[BUFFER_SIZE]; // Bộ đệm nhận dữ liệu
-volatile uint8_t rx_index = 0;        // Chỉ số lưu vị trí trong bộ đệm
+### Nhiều master với nhiều slave
+    Nhiều master có thể được kết nối với một slave hoặc nhiều slave. Sự cố với nhiều master trong cùng một hệ thống xảy ra khi hai master cố gắng gửi hoặc nhận dữ liệu cùng một lúc qua đường SDA. Để giải quyết vấn đề này, mỗi master cần phải phát hiện xem đường SDA thấp hay cao trước khi truyền tin nhắn. Nếu đường SDA thấp, điều này có nghĩa là một master khác có quyền điều khiển bus và master đó phải đợi để gửi tin nhắn. Nếu đường SDA cao thì có thể truyền tin nhắn an toàn. Để kết nối nhiều master với nhiều slave.
 
-void uart_init(unsigned int baudrate) {
-    // Cấu hình UART với tốc độ baudrate
-    unsigned int ubrr = F_CPU / 16 / baudrate - 1; // Tính giá trị UBRR
-    UBRR0H = (unsigned char)(ubrr >> 8);          // Cấu hình phần cao
-    UBRR0L = (unsigned char)ubrr;                 // Cấu hình phần thấp
-    UCSR0B = (1 << RXEN0) | (1 << RXCIE0);        // Kích hoạt nhận và ngắt RX
-    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);       // Giao thức 8N1 (8-bit, không parity, 1 stop bit)
-}
 
-ISR(USART_RX_vect) {
-    // Ngắt nhận dữ liệu UART
-    char received_char = UDR0;                 // Đọc byte vừa nhận từ thanh ghi dữ liệu UART
-    if (rx_index < BUFFER_SIZE - 1) {          // Kiểm tra bộ đệm còn chỗ
-        rx_buffer[rx_index++] = received_char; // Lưu dữ liệu vào bộ đệm
-    }
-}
-
-int main() {
-    uart_init(9600); // Khởi tạo UART với tốc độ 9600 baud
-    sei();           // Cho phép ngắt toàn cục
-
-    while (1) {
-        // Xử lý khác hoặc chờ đợi dữ liệu (bộ đệm tự nhận dữ liệu qua ngắt)
-    }
-}```
-
-Giải thích chi tiết:
-Cấu hình UART:
-
-UBRR0H và UBRR0L: Thiết lập tốc độ baud (ví dụ: 9600 baud).
-UCSR0B: Kích hoạt chế độ nhận dữ liệu (RX) và ngắt nhận dữ liệu (RXCIE0).
-UCSR0C: Đặt giao thức truyền thông 8-bit dữ liệu, không parity, 1 stop bit.
-Ngắt nhận dữ liệu (USART_RX_vect):
-
-Ngắt này xảy ra khi một byte dữ liệu mới được nhận vào qua UART.
-UDR0: Thanh ghi chứa byte dữ liệu vừa nhận. Giá trị này được lưu vào bộ đệm rx_buffer.
-Vòng lặp chính:
-
-CPU tiếp tục thực thi các tác vụ khác trong vòng lặp chính mà không phải bận tâm đến việc nhận dữ liệu.
-Khi có dữ liệu mới, ngắt tự động xử lý và lưu dữ liệu vào bộ đệm.

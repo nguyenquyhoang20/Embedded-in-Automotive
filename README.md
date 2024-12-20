@@ -150,12 +150,7 @@ void Clock()
 }
 ```
 Mỗi khi hàm Clock được gọi, sẽ tạo 1 xung vuông, tín hiệu sẽ được truyền nhận theo clock này.
-![image alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2edd27a9e8f7b2fbd5b950e6f4574dce14730bcb/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-20%20225332.png) 
-
-| Clock();  | Clock();       | Clock(); |
-| :—–       |  :———-         | :————– |
-| Truyền | || Truyền| |      |Truyền |  |
-
+![image alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/d83668584b8565b0d134455056439ac9fc6fb178/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-20%20230611.png) 
 Hàm truyền ở master:
 ```
 void SPI_Master_Transmit(uint8_t u8Data){

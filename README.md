@@ -151,7 +151,7 @@ void Clock()
 ```
 Mỗi khi hàm Clock được gọi, sẽ tạo 1 xung vuông, tín hiệu sẽ được truyền nhận theo clock này.
 ![image alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/d83668584b8565b0d134455056439ac9fc6fb178/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-20%20230611.png) 
-Hàm truyền ở master:
+	Hàm truyền ở master:
 ```
 void SPI_Master_Transmit(uint8_t u8Data){
 	uint8_t u8Mask = 0x80;
@@ -213,9 +213,9 @@ void loop(){
 ## SPI Hardware
 STM32F1 có 2 khối SPI, SPI1 ở APB2 và SPI2 ở PAB1. Các khối này được xây dựng các kết nối, driver và các hàm riêng trong bộ thư viện chuẩn.
 ### 2.1 Cấu hình GPIO cho SPI.
-STM32 cấu hình sẵn các chân dành cho chức năng SPI. 
+	STM32 cấu hình sẵn các chân dành cho chức năng SPI. 
 ![image alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/8a61614a6cb86cc69eaee3300d1bcc582f27b48c/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-20%20223315.png) 
-Ở đây, ví dụ sử dụng SPI1, các chân đã được thiết lập sẵn. Ta sẽ cấu hình cho các chân này. Đầu tiên define các chân với các tên riêng biệt:
+	Ở đây, ví dụ sử dụng SPI1, các chân đã được thiết lập sẵn. Ta sẽ cấu hình cho các chân này. Đầu tiên define các chân với các tên riêng biệt:
 ```
 #define SPI1_NSS 	GPIO_Pin_4
 #define SPI1_SCK	GPIO_Pin_5

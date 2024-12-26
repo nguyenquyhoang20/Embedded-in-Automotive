@@ -293,6 +293,361 @@ uint8_t SPI_Receive1Byte(void){
     return temp;
 }
 ``` 
+# I2C Sofware & I2C Hardware
+## I2C Software
+Cấu hình GPIO 
+ I2C chỉ sử dụng hai dây để truyền dữ liệu giữa các thiết bị:
+- SDA (Serial Data) - đường truyền cho master và slave để gửi và nhận dữ liệu.
+- SCL (Serial Clock) - đường mang tín hiệu xung nhịp.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20155145.png) 
+
+Các chân có thể vừa là ngõ vào, vừa là ngõ ra tùy thuộc vào Master và slave khi truyền.
+```
+#define I2C_SCL GPIO_Pin_6
+#define I2C_SDA	GPIO_Pin_7
+#define I2C_GPIO GPIOB
+
+void RCC_Config(){
+    // Bật đồng hồ cho GPIOB (dùng cho các chân I2C SCL và SDA)
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    
+    // Bật đồng hồ cho TIM2 (dùng cho bộ đếm thời gian, có thể dùng cho I2C hoặc các tác vụ khác)
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+}
+
+void GPIO_Config(){
+    GPIO_InitTypeDef GPIO_InitStructure;
+    
+    // Bật đồng hồ cho GPIOB (cổng này sẽ dùng cho SDA và SCL)
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+    // Cấu hình các chân GPIO (SDA và SCL) cho giao thức I2C
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD; // Chế độ đầu ra Open-Drain
+    GPIO_InitStructure.GPIO_Pin = I2C_SDA | I2C_SCL; // Cấu hình chân SDA và SCL
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz; // Cấu hình tốc độ của chân GPIO là 50 MHz
+    
+    // Khởi tạo các chân GPIOB theo cấu hình đã chỉ định
+    GPIO_Init(I2C_GPIO, &GPIO_InitStructure);
+}
+```
+## I2C Software code
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20155336.png) 
+
+Ở trạng thái không truyền, các đừng SDA, SCL đều ở mức cao:
+```
+void I2C_Start(){
+    WRITE_SDA_1; // Đảm bảo SDA ở mức cao
+    WRITE_SCL_1; // Đảm bảo SCL ở mức cao
+    delay_us(1); // Đợi một khoảng ngắn
+    
+    WRITE_SDA_0; // SDA chuyển xuống mức thấp
+    delay_us(1);
+    WRITE_SCL_0; // Sau đó kéo SCL xuống mức thấp để bắt đầu truyền
+    delay_us(1);
+}
+```
+Massage bắt đầu với 1 tín hiệu start: SDA được kéo xuống 0 trong khi SCL vẫn mức cao
+	Các macro dưới đây nhằm mục đích đơn giản hóa việc gọi hàm.
+ ```
+ // Đặt SDA xuống mức thấp (0) để tạo tín hiệu dữ liệu 0
+#define WRITE_SDA_0 	GPIO_ResetBits(I2C_GPIO, I2C_SDA)
+
+// Đặt SDA lên mức cao (1) để tạo tín hiệu dữ liệu 1 hoặc giữ SDA ở trạng thái chờ
+#define WRITE_SDA_1 	GPIO_SetBits(I2C_GPIO, I2C_SDA)
+
+// Đặt SCL xuống mức thấp (0) để tạo cạnh xuống cho xung nhịp
+#define WRITE_SCL_0 	GPIO_ResetBits(I2C_GPIO, I2C_SCL)
+
+// Đặt SCL lên mức cao (1) để tạo cạnh lên cho xung nhịp hoặc giữ SCL ở trạng thái chờ
+#define WRITE_SCL_1 	GPIO_SetBits(I2C_GPIO, I2C_SCL)
+
+// Đọc trạng thái mức logic (0 hoặc 1) từ chân SDA để nhận dữ liệu từ thiết bị khác
+#define READ_SDA_VAL 	GPIO_ReadInputDataBit(I2C_GPIO, I2C_SDA)
+```
+Frame truyền bắt đầu bằng tín hiệu Start, Start: SDA kéo xuống 0 trước SCL 1 khoảng delay nhỏ. Kết thúc bằng tín hiệu stop: SCL kéo lên 1 trước SDA 1 khoảng delay nhỏ.
+```
+// Hàm tạo tín hiệu START cho giao thức I2C
+void I2C_Start(){
+
+	WRITE_SCL_1;  	// Đảm bảo SCL (Clock) ở mức cao để chuẩn bị gửi tín hiệu START.
+	delay_us(3);	// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SDA_1;    // Đảm bảo SDA (Data) ở mức cao trước khi tạo cạnh xuống để bắt đầu.
+	delay_us(3);	// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SDA_0;	// Kéo SDA xuống mức thấp (0) trong khi SCL vẫn ở mức cao -> tạo tín hiệu START.
+	delay_us(3);	// Trễ để đảm bảo Slave nhận biết tín hiệu START.
+
+	WRITE_SCL_0;	// Kéo SCL xuống mức thấp để tiếp tục truyền dữ liệu sau tín hiệu START.
+	delay_us(3);	// Trễ nhỏ để tín hiệu ổn định.
+}
+
+// Hàm tạo tín hiệu STOP cho giao thức I2C
+void I2C_Stop(){
+
+	WRITE_SDA_0;	// Đảm bảo SDA ở mức thấp (0) trước khi tạo tín hiệu dừng.
+	delay_us(3);	// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SCL_1; 	// Đặt SCL lên mức cao trước khi đưa SDA lên mức cao -> tạo tín hiệu STOP.
+	delay_us(3);	// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SDA_1;	// Kéo SDA lên mức cao (1) khi SCL đang ở mức cao -> tạo tín hiệu STOP.
+	delay_us(3);	// Trễ để đảm bảo Slave nhận biết tín hiệu STOP.
+}
+```
+### Hàm truyền: 
+Hàm truyền sẽ truyền lần lượt 8 bit trong byte dữ liệu.
+	- Truyền 1 bit.
+	- Tạo clock;
+	- Dịch 1 bit.
+- Chờ nhận lại ACK ở xung thứ 9.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20161459.png)
+```
+// Hàm ghi dữ liệu 8-bit vào bus I2C
+status I2C_Write(uint8_t u8Data) {	
+	uint8_t i;          // Biến đếm vòng lặp.
+	status stRet;       // Biến trạng thái trả về (OK hoặc NOT_OK).
+
+	// Vòng lặp để ghi từng bit của byte dữ liệu (8 bit).
+	for(int i = 0; i < 8; i++) {		
+		// Kiểm tra bit cao nhất (MSB) của dữ liệu.
+		if (u8Data & 0x80) {	// Nếu bit này là 1
+			WRITE_SDA_1;      // Đặt SDA ở mức cao.
+		} else {              // Nếu bit này là 0
+			WRITE_SDA_0;      // Đặt SDA ở mức thấp.
+		}
+
+		delay_us(3);		// Trễ nhỏ để đảm bảo tín hiệu ổn định.
+
+		WRITE_SCL_1;		// Đưa SCL lên mức cao -> Chốt dữ liệu vào Slave.
+		delay_us(5);		// Giữ mức cao để Slave nhận dữ liệu.
+
+		WRITE_SCL_0;		// Đưa SCL xuống mức thấp để chuẩn bị bit tiếp theo.
+		delay_us(2);		// Trễ nhỏ để tín hiệu ổn định.
+
+		u8Data <<= 1;		// Dịch trái dữ liệu 1 bit để chuẩn bị gửi bit tiếp theo.
+	}
+
+	// Tạo tín hiệu nhận ACK từ Slave.
+	WRITE_SDA_1;			// Nhả SDA để chuyển sang chế độ đọc (Input Mode).
+	delay_us(3);			// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SCL_1;			// Đưa SCL lên mức cao để Slave gửi ACK.
+	delay_us(3);			// Giữ mức cao để chốt trạng thái ACK.
+
+	// Đọc ACK từ Slave.
+	if (READ_SDA_VAL) {	    // Nếu SDA vẫn ở mức cao -> không có ACK (NACK).
+		stRet = NOT_OK;		// Trả về trạng thái thất bại.
+	} else {                // Nếu SDA được kéo xuống thấp -> có ACK.
+		stRet = OK;			// Trả về trạng thái thành công.
+	}
+
+	delay_us(2);			// Trễ nhỏ để tín hiệu ổn định.
+	WRITE_SCL_0;			// Đưa SCL xuống mức thấp để kết thúc quá trình ACK.
+	delay_us(5);			// Trễ nhỏ để ổn định tín hiệu trước khi kết thúc.
+
+	return stRet;			// Trả về kết quả quá trình ghi dữ liệu.
+}
+```
+Giải thích chi tiết về hoạt động:
+1.Ghi dữ liệu (Write Byte):
+- Vòng lặp chạy 8 lần, mỗi lần xử lý 1 bit từ dữ liệu đầu vào u8Data.
+- Bit cao nhất (MSB) được kiểm tra và ghi vào SDA.
+- SCL được đưa lên cao để chốt dữ liệu vào Slave.
+2.Nhận ACK (Acknowledgment):
+  
+- Sau khi ghi dữ liệu, Master nhả SDA (đặt SDA lên mức cao) để Slave gửi tín hiệu ACK.
+- Slave sẽ kéo SDA xuống mức thấp để xác nhận đã nhận dữ liệu.
+- Nếu SDA vẫn ở mức cao, tức là không có ACK (NACK), trả về NOT_OK.
+  
+3.Tín hiệu thời gian (Timing):
+- Các lệnh delay_us() được sử dụng để tạo trễ theo yêu cầu của giao thức I2C, đảm bảo tín hiệu ổn định và tuân thủ tốc độ truyền dữ liệu.
+### Hàm nhận:
+Hàm nhận sẽ nhận lần lượt 8 bit trong byte dữ liệu.
+- Kéo SDA lên 1
+	- Đọc data trên SDA, ghi vào biến.
+	- Dịch 1 bit.
+- Gửi lại 1 tín hiệu ACK ở xung thứ 9
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20161509.png)
+
+```
+// Hàm đọc dữ liệu 8-bit từ bus I2C.
+uint8_t I2C_Read(ACK_Bit _ACK) {	
+	uint8_t i;						// Biến đếm vòng lặp.
+	uint8_t u8Ret = 0x00;			// Biến để lưu dữ liệu nhận được, ban đầu là 0.
+
+	WRITE_SDA_1;					// Nhả SDA để chuyển sang chế độ đọc (Input Mode).
+	delay_us(3);					// Trễ nhỏ để tín hiệu ổn định.
+
+	// Vòng lặp đọc từng bit của dữ liệu từ SDA.
+	for (i = 0; i < 8; ++i) {		
+		u8Ret <<= 1;				// Dịch trái 1 bit để chuẩn bị nhận bit tiếp theo.
+
+		WRITE_SCL_1;				// Đưa SCL lên mức cao -> đọc dữ liệu từ SDA.
+		delay_us(3);				// Giữ mức cao để dữ liệu ổn định.
+
+		if (READ_SDA_VAL) {			// Đọc trạng thái SDA.
+			u8Ret |= 0x01;			// Nếu SDA ở mức cao -> ghi 1 vào bit thấp nhất.
+		}
+
+		delay_us(2);				// Trễ nhỏ để tín hiệu ổn định.
+		WRITE_SCL_0;				// Đưa SCL xuống mức thấp để kết thúc việc đọc bit.
+		delay_us(5);				// Trễ nhỏ trước khi đọc bit tiếp theo.
+	}
+
+	// Gửi tín hiệu ACK hoặc NACK.
+	if (_ACK) {						// Nếu _ACK là 1 -> gửi ACK (Master chấp nhận dữ liệu).
+		WRITE_SDA_0;				// Đặt SDA ở mức thấp để gửi ACK.
+	} else {						// Nếu _ACK là 0 -> gửi NACK (Master không chấp nhận thêm dữ liệu).
+		WRITE_SDA_1;				// Đặt SDA ở mức cao để gửi NACK.
+	}
+	delay_us(3);					// Trễ nhỏ để tín hiệu ổn định.
+
+	WRITE_SCL_1;					// Đưa SCL lên mức cao để chốt trạng thái ACK/NACK.
+	delay_us(5);					// Giữ mức cao để Slave nhận tín hiệu.
+	WRITE_SCL_0;					// Đưa SCL xuống mức thấp để kết thúc chu kỳ ACK/NACK.
+	delay_us(5);					// Trễ nhỏ trước khi kết thúc quá trình đọc.
+
+	return u8Ret;					// Trả về dữ liệu đã đọc được từ bus I2C.
+}
+```
+Giải thích chi tiết về hoạt động:
+1.Chế độ đọc dữ liệu:
+- Đặt SDA ở mức cao để chuyển sang chế độ đọc dữ liệu từ Slave.
+- Chạy vòng lặp 8 lần, mỗi lần đọc 1 bit từ SDA.
+- SCL được đưa lên mức cao để chốt dữ liệu từ Slave và xuống thấp để chuẩn bị đọc bit tiếp theo.
+2.Xử lý dữ liệu đọc được:
+- Dịch trái dữ liệu hiện tại để mở chỗ cho bit mới nhận được.
+- Nếu SDA ở mức cao, ghi 1 vào bit thấp nhất của dữ liệu.
+3.Gửi tín hiệu ACK/NACK:
+- Nếu _ACK = 1, Master gửi ACK để báo hiệu đã nhận dữ liệu thành công và yêu cầu dữ liệu tiếp theo.
+- Nếu _ACK = 0, Master gửi NACK để báo hiệu không yêu cầu thêm dữ liệu.
+4.Tín hiệu thời gian (Timing):
+Các lệnh delay_us() được sử dụng để tạo trễ phù hợp với chuẩn I2C, đảm bảo tín hiệu ổn định.
+## I2C Hardware 
+### Cấu hình GPIO 
+Các chân của từng bộ I2C được cài đặt sẵn trong datasheet.
+```
+#define I2C_SCL GPIO_Pin_6
+#define I2C_SDA	GPIO_Pin_7
+#define I2C1_GPIO GPIOB
+```
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20163339.png)
+
+- SCL: Output
+- SDA: Input/Output
+- Vì có trở kéo lên nên sẽ hoạt động ở chế độ OD.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/2f6b72e42d3fb5938db705d5178b5945b4582d20/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20163745.png)
+
+
+```
+void GPIO_Config(void) {
+    // Tạo một biến cấu trúc để lưu cấu hình cho GPIO
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    // Bật xung clock cho GPIO Port B để có thể sử dụng các chân của nó
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+    // Chọn các chân cần cấu hình: PB6 và PB7
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7; 
+    
+    // Đặt chế độ chân là Alternate Function Open-Drain (AF_OD)
+    // - AF (Alternate Function): Chân hoạt động với chức năng thay thế, ở đây là I2C
+    // - OD (Open-Drain): Chân chỉ có thể kéo xuống mức thấp (0) và cần điện trở kéo lên để tạo mức cao (1)
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
+
+    // Đặt tốc độ chuyển trạng thái tối đa của chân là 50MHz
+    // Tốc độ này đảm bảo giao tiếp ổn định cho I2C
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+
+    // Áp dụng cấu hình đã thiết lập cho các chân PB6 và PB7 thuộc Port B
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+}
+``` 
+### Cấu hình I2C
+Tương tự các ngoại vi khác, các tham số I2C được cấu hình trong Struct I2C_InitTypeDef:
+
+- **I2C_Mode:** Cấu hình chế độ hoạt động cho I2C:
+	- **I2C_Mode_I2C:** Chế độ I2C FM(Fast Mode);
+	- **I2C_Mode_SMBusDevice&I2C_Mode_SMBusHost:** Chế độ SM(Slow Mode).
+- **I2C_ClockSpeed:** Cấu hình clock cho I2C, tối đa 100khz với SM và 400khz ở FM.
+- **I2C_DutyCycle:** Cấu hình chu kì nhiệm vụ của xung:
+	- **I2C_DutyCycle_2:** Thời gian xung thấp/ xung cao =2;
+	- **I2C_DutyCycle_16_9:** Thời gian xung thấp/ xung cao =16/9;
+- **I2C_OwnAddress1:** Cấu hình địa chỉ slave.
+- **I2C_Ack:** Cấu hình ACK, có sử dụng ACK hay không.
+- **I2C_AcknowledgedAddress:** Cấu hình số bit địa chỉ. 7 hoặc 10 bit
+- Hàm**I2C_Send7bitAddress(I2C_TypeDef* I2Cx, uint8_t Address, uint8_t I2C_Direction)**, gửi đi 7 bit address để xác định slave cần giao tiếp. Hướng truyền được xác định bởi I2C_Direction để thêm bit RW.
+- Hàm**I2C_SendData(I2C_TypeDef* I2Cx, uint8_t Data)** gửi đi 8 bit data.
+- Hàm**I2C_ReceiveData(I2C_TypeDef* I2Cx)** trả về 8 bit data.
+- Hàm**I2C_CheckEvent(I2C_TypeDef* I2Cx, uint32_t I2C_EVENT)** trả về kết quả kiểm tra I2C_EVENT tương ứng:
+- Hàm**I2C_CheckEvent(I2C_TypeDef* I2Cx, uint32_t I2C_EVENT)** trả về kết quả kiểm tra I2C_EVENT tương ứng:
+	- **I2C_EVENT_MASTER_MODE_SELECT:** Đợi Bus I2C về chế độ rảnh.
+	- **I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED:** Đợi xác nhận của Slave với yêu cầu ghi của Master.
+	- **I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED:** Đợi xác nhận của Slave với yêu cầu đọc của Master.
+	- **I2C_EVENT_MASTER_BYTE_TRANSMITTED:** Đợi truyền xong 1 byte data từ Master.
+	- **I2C_EVENT_MASTER_BYTE_RECEIVED:** Đợi Master nhận đủ 1 byte data.
+
+Bắt đầu truyền nhận, bộ I2C sẽ tạo 1 tín hiệu start. Đợi tín hiệu báo Bus sẵn sàng.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/92ca4bd119a9909b7cd7f297f17ff1aba8ae9a0e/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202024-12-26%20173449.png)
+
+- Gửi 7 bit địa chỉ để xác định slave. Đợi Slave xác nhận.
+```
+I2C_GenerateSTART(I2C1, ENABLE);
+// Gửi tín hiệu Start để bắt đầu giao tiếp I2C. 
+// I2C1 là I2C interface bạn đang sử dụng và ENABLE cho phép tạo tín hiệu Start.
+
+while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_MODE_SELECT));
+// Chờ cho đến khi I2C chuyển sang chế độ master, tức là thiết bị đang làm chủ giao tiếp.
+// I2C_EVENT_MASTER_MODE_SELECT là một sự kiện flag cho biết master đã sẵn sàng.
+
+I2C_Send7bitAddress(I2C1, 0x44, I2C_Direction_Transmitter);
+// Gửi địa chỉ của thiết bị I2C (0x44) và hướng truyền là **Transmitter** (gửi dữ liệu).
+// Địa chỉ 0x44 được gửi theo chuẩn 7-bit (không phải 8-bit) và chỉ định rằng thiết bị này sẽ truyền dữ liệu.
+
+while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED));
+// Chờ cho đến khi chế độ truyền (transmitter mode) của master được chọn. 
+// Đây là sự kiện cho biết rằng master đã sẵn sàng để truyền dữ liệu.
+```
+- Gửi/đọc các byte data, Đợi truyền xong.
+```
+void Send_I2C_Data(uint8_t data)
+{
+    I2C_SendData(I2C1, data);
+    // Gửi dữ liệu (byte) qua I2C1. 
+    // Dữ liệu cần truyền được chứa trong biến `data` và được gửi tới slave thông qua I2C1.
+    
+    // wait for the data transmitted flag
+    while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_BYTE_TRANSMITTED));
+    // Kiểm tra xem byte đã được truyền xong chưa bằng cách kiểm tra sự kiện `I2C_EVENT_MASTER_BYTE_TRANSMITTED`.
+    // Nếu dữ liệu chưa được truyền xong, chương trình sẽ đợi cho đến khi sự kiện này xảy ra.
+}
+
+uint8_t Read_I2C_Data(){
+    
+    uint8_t data = I2C_ReceiveData(I2C1);
+    // Nhận dữ liệu (byte) từ I2C1. Dữ liệu nhận được sẽ được lưu vào biến `data`.
+    
+    while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_BYTE_RECEIVED));
+    // Chờ cho đến khi byte dữ liệu được nhận hoàn toàn.
+    // Kiểm tra sự kiện `I2C_EVENT_MASTER_BYTE_RECEIVED` để xác nhận rằng dữ liệu đã được nhận thành công.
+    
+    return data;
+    // Trả về byte dữ liệu đã nhận từ I2C1.
+}
+```
+- Sau đó kết thúc bằng tín hiệu stop.
+
+
+
+
+
+
+
+
+	
+
+
 
 
 

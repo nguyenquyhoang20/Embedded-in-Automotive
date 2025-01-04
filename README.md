@@ -1,4 +1,4 @@
-# Embedded-in-Automotive
+![image](https://github.com/user-attachments/assets/20cb32ff-863d-49fe-b2d9-c22a13463c46)# Embedded-in-Automotive
 # Interrupt - Timer
 Ngắt là một sự kiện khẩn cấp xảy ra bên trong hoặc bên ngoài vi điều khiển, yêu cầu dừng chương trình chính để thực thi chương trình xử lý ngắt.
 Các loại ngắt thông dụng:
@@ -915,6 +915,108 @@ Quá trình truyền/nhận có thể mô tả như sau:
 - Truyền: Gửi đi từng byte data. Sau đó đợi cờ TXE bật lên.
 - Nhận: Đọc data từ bộ UART, chờ cờ RNXE bật lên.
 - Đối với mảng dữ liệu, lặp lại quá trình cho từng byte.
+  
+# Ngắt ngoài, Ngắt Timer, Ngắt truyền thông
+## Ngắt Ngoài:
+External interrupt (EXTI) hay còn gọi là ngắt ngoài. Là 1 sự kiện ngắt xảy ra khi có tín hiệu can thiệp từ bên ngoài, từ phần cứng, người sử dụng hay ngoại vi,… 
+	Sơ đồ khối của các khối điều khiển ngắt ngoài:
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20225924.png)
+
+ Ngắt ngoài của chip STM32F103 bao gồm có 16 line:
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230005.png) 
+Ở đây chúng ta có thể thấy chip STM32F103C8 gồm có 16 Line ngắt riêng biệt.
+
+Ví dụ:
+- Line0 sẽ chung cho tất cả chân Px0 ở tất cả các Port, với x là tên của Port A, B…
+- Line0 nếu chúng ta đã chọn chân PA0 (chân 0 ở port A) làm chân ngắt thì tất cả các chân 0 ở các Port khác không được khai báo làm chân ngắt ngoài nữa
+- Line1 nếu chúng ta chọn chân PB1 là chân ngắt thì tất cả chân 1 ở các Port khác không được khai báo làm chân ngắt nữa.
+Tiếp theo các Line ngắt sẽ được phân vào các Vector ngắt tương ứng. Các Line ngắt của chip STM32F103 được phân bố vào các vector ngắt như sau:
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230102.png) 
+
+Các Line0, Line1, Line2, Line3, Line4 sẽ được phân vào các vector ngắt riêng biệt EXTI0, EXTI1, EXTI2, EXTI3, EXTI4, còn từ Line5->Line9 sẽ được phân vào vector ngắt EXTI9_5, Line10->Line15 được phân vào vecotr EXTI15_10.
+	Bảng mức độ ưu tiên ngắt NVIC:
+ 
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230215.png)
+Có hai loại ưu tiên ngắt khác nhau trên MCU STM32F103C8T6 đó là Preemption Priorities và Sub Priorities:
+– Mặc định thì ngắt nào có Preemtion Priority cao hơn thì sẽ được thực hiện trước.
+– Khi nào 2 ngắt có cùng một mức Preemption Priority thì ngắt nào có Sub Priority cao hơn thì ngắt đó được thực hiện trước.
+– Còn trường hợp 2 ngắt có cùng mức Preemption và Sub Priority luôn thì ngắt nào đến trước được thực hiện trước.
+### Cấu hình ngắt ngoài:
+#### Cấu hình GPIO:
+
+Chân ngắt ngoài sẽ được cấu hình là Input. chế độ PullUp hay PullDown tùy thuộc vào cạnh ngắt.
+#### Cấu hình NVIC
+
+Bộ NVIC cấu hình các tham số ngắt và quản lý các vecto ngắt. Các tham số được cấu hình trong NVIC_InitTypeDef, bao gồm:
+- NVIC_IRQChannel: Cấu hình Line ngắt, Enable line ngắt tương ứng với ngắt sử dụng.
+- NVIC_IRQChannelPreemptionPriority: Cấu hình độ ưu tiên của ngắt.
+- NVIC_IRQChannelSubPriority: Cấu hình độ ưu tiên phụ.
+- NVIC_IRQChannelCmd: Cho phép ngắt.
+Ngoài ra, NVIC_PriorityGroupConfig(); cấu hình các bit dành cho ChannelPreemptionPriority và ChannelSubPriority: 
+- NVIC_PriorityGroup_0: 0 bits for pre-emption priority 4 bits for subpriority
+- NVIC_PriorityGroup_1: 1 bits for pre-emption priority 3 bits for subpriority
+- NVIC_PriorityGroup_2: 2 bits for pre-emption priority 2 bits for subpriority
+- NVIC_PriorityGroup_3: 3 bits for pre-emption priority 1 bits for subpriority
+- NVIC_PriorityGroup_4: 4 bits for pre-emption priority 0 bits for subpriority
+- 
+#### Cấu hình EXTI.
+RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
+- Đầu tiên, để sử dụng GPIO như ngắt ngoài, cần cấp clock cho ngoại vi AFIO.
+Hàm GPIO_EXTILineConfig(uint8_t GPIO_PortSource, uint8_t GPIO_PinSource) cấu hình chân ở chế độ sử dụng ngắt ngoài:
+- GPIO_PortSource: Chọn Port để sử dụng làm nguồn cho ngắt ngoài.
+- GPIO_PinSource: Chọn Pin để cấu hình.
+
+Các tham số ngắt ngoài được cấu hình trong Struct EXTI_InitTypeDef, gồm:
+- EXTI_Line: Chọn line ngắt.
+- EXTI_Mode: Chọn Mode cho ngắt là Interupt hay Even.
+- EXTI_Trigger: Cấu hình cạnh ngắt.
+- EXTI_LineCmd: Cho phép ngắt ở Line đã cấu hình.
+### Hàm phục vụ ngắt ngoài:
+- Ngắt trên từng line có hàm phục riêng của từng line. Được đăng kí và có tên cố định:**EXTIx_IRQHandler() (x là line ngắt tương ứng)**. Hàm này sẽ được gọi khi có ngắt tương ứng trên Line xảy ra.
+- **Hàm EXTI_GetITStatus(EXTI_Linex)( x là Line ngắt):** Kiểm tra cờ ngắt của line x tương ứng. Nếu chính xác Ngắt từ line x mới thực hiện các lệnh tiếp theo. 
+- **Hàm EXTI_ClearITPendingBit(EXTI_Linex):** Xóa cờ ngắt ở line x.
+
+Trong hàm phục vụ ngắt ngoài, chúng ta sẽ thực hiện:
+- Kiểm tra ngắt đến từ line nào, có đúng là line cần thực thi hay không?
+- Thực hiện các lệnh, các hàm.
+- Xóa cờ ngắt ở line.
+## Ngắt Timer
+### Cấu hình ngắt Timer
+#### Cấu hình Timer:
+Sử dụng ngắt timer, ta vẫn cấu hình các tham số trong **TIM_TimeBaseInitTypeDef** bình thường, riêng **TIM_Period,** đây là số chu kì mà timer sẽ ngắt. Ta tính toán và đặt giá trị để tạo khaongr thời gian ngắt mong muốn.
+- **Hàm TIM_ITConfig(TIMx, TIM_IT_Update, ENABLE)** kích hoạt ngắt cho TIMERx tương ứng.
+#### Cấu hình NVIC:
+Ở NVIC, ta cấu hình tương tự như ngắt ngoài EXTI, tuy nhiên NVIC_IRQChannel được đổi thành TIM_IRQn để khớp với line ngắt timer.
+### Hàm phục vụ ngắt TImer
+- Hàm phục vụ ngắt Timer được đặt tên : **TIMx_IRQHandler()** với x là timer tương ứng.	
+- Bên trong hàm ngắt, ta kiểm tra cờ **TIM_IT_Update bằng hàm TIM_GetITStatus()**
+- Hàm này trả về giá trị kiểm tra xem timer đã tràn hay chưa.
+
+Sau khi thực hiện xong, **gọi TIM_ClearITPendingBit(TIMx, TIM_IT_Update);** để xóa cờ ngắt này.
+## Ngắt truyền thông.
+### Cấu hình ngắt UART.
+Đầu tiên, các cấu hình tham số cho UART thực hiện bình thường. Cấu hình RCC->Cấu hình GPIO-> Cấu hình tham số UART. 
+Trước khi cho phép UART hoạt động, cần kích hoạt cho phép ngắt UART bnawgf hàm USART_ITConfig(); ham này gồm 3 tham số:
+- ***USART_TypeDef* USARTx:*** Bộ UART cần cấu hình.
+- **uint16_t USART_IT:** Chọn nguồn ngắt UART.Có nhiều nguồn ngắt từ UART, ở bài này ta chú ý đến ngắt truyền **(USART_IT_TXE)** và ngắt nhận **(USART_IT_RXNE).**
+- **FunctionalState NewState:** Cho phép ngắt
+#### Cấu hình NVIC.
+Ở cấu hình NVIC cho UART cũng như các ngoại vi khác, cần chọn line ngắt tương ứng với bộ ngoại vi cần sử dụng.
+Ở đây chọn line UART là USARTx_IRQn với x là bộ Uart sử dụng.
+### Hàm phục vụ ngắt.
+Hàm **USARTx_IRQHandler()** sẽ được gọi nếu xảy ra ngắt trên Line ngắt UART đã cấu hình. Trong hàm phục vụ ngắt, ta kiểm tra ngắt đến là ngắt nhận RXNE hay ngắt truyền TX, bằng hàm **USART_GetITStatus.** Tùy theo tín hiệu ngắt mà có thể lập trình tác vụ khác nhau. Sau khi thực thi xong, có thể xóa cờ ngắt để đảm bảo không còn ngắt trên line (thông thường cờ ngắt sẽ tự động xóa).
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

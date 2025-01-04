@@ -641,7 +641,7 @@ uint8_t Read_I2C_Data(){
 ## UART Software
 ### Cấu hình GPIO
 UART chỉ sử dụng 2 chân để truyền, đó là TX và RX.
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20200948.png)
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20200948.png)
 
 Xác định các chân sử dụng cho UART là bước đầu tiên. UART soft không yêu cầu các chân cụ thể nên ta có thể sử dụng chân bất kì:
 ```
@@ -696,7 +696,7 @@ Hàm truyền sẽ truyền lần lượt 8 bit trong byte dữ liệu, sau khi 
 	- Truyền bit dữ liệu. mỗi bi truyền trong 1 period time.
 	- Dịch 1 bit.
 - Tạo stop, delay tương ứng với số bit stop
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20201711.png)
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20201711.png)
 ```
 void UART_Transmit(const char DataValue) {
     // Gửi Start Bit
@@ -842,7 +842,7 @@ uint8_t Parity_Check(uint8_t data, Parity_Mode Mode) {
 ```
 ## UART Hardware
 ### Cấu hình GPIO
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20202801.png)
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20202801.png)
 Các bộ UART trong STM32F1 được xác định sẵn các chân GPIO
 Tương tự Software, TX sẽ là UOTPUT và RX sẽ là INPUT.
 ```
@@ -920,10 +920,10 @@ Quá trình truyền/nhận có thể mô tả như sau:
 ## Ngắt Ngoài:
 External interrupt (EXTI) hay còn gọi là ngắt ngoài. Là 1 sự kiện ngắt xảy ra khi có tín hiệu can thiệp từ bên ngoài, từ phần cứng, người sử dụng hay ngoại vi,… 
 	Sơ đồ khối của các khối điều khiển ngắt ngoài:
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20225924.png)
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20225924.png)
 
  Ngắt ngoài của chip STM32F103 bao gồm có 16 line:
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230005.png) 
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230005.png) 
 Ở đây chúng ta có thể thấy chip STM32F103C8 gồm có 16 Line ngắt riêng biệt.
 
 Ví dụ:
@@ -931,12 +931,12 @@ Ví dụ:
 - Line0 nếu chúng ta đã chọn chân PA0 (chân 0 ở port A) làm chân ngắt thì tất cả các chân 0 ở các Port khác không được khai báo làm chân ngắt ngoài nữa
 - Line1 nếu chúng ta chọn chân PB1 là chân ngắt thì tất cả chân 1 ở các Port khác không được khai báo làm chân ngắt nữa.
 Tiếp theo các Line ngắt sẽ được phân vào các Vector ngắt tương ứng. Các Line ngắt của chip STM32F103 được phân bố vào các vector ngắt như sau:
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230102.png) 
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230102.png) 
 
 Các Line0, Line1, Line2, Line3, Line4 sẽ được phân vào các vector ngắt riêng biệt EXTI0, EXTI1, EXTI2, EXTI3, EXTI4, còn từ Line5->Line9 sẽ được phân vào vector ngắt EXTI9_5, Line10->Line15 được phân vào vecotr EXTI15_10.
 	Bảng mức độ ưu tiên ngắt NVIC:
  
-[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230215.png)
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c08530c9fde1d95ed3cf0311621e699c0db5c07b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-04%20230215.png)
 Có hai loại ưu tiên ngắt khác nhau trên MCU STM32F103C8T6 đó là Preemption Priorities và Sub Priorities:
 – Mặc định thì ngắt nào có Preemtion Priority cao hơn thì sẽ được thực hiện trước.
 – Khi nào 2 ngắt có cùng một mức Preemption Priority thì ngắt nào có Sub Priority cao hơn thì ngắt đó được thực hiện trước.
@@ -958,7 +958,7 @@ Ngoài ra, NVIC_PriorityGroupConfig(); cấu hình các bit dành cho ChannelPre
 - NVIC_PriorityGroup_2: 2 bits for pre-emption priority 2 bits for subpriority
 - NVIC_PriorityGroup_3: 3 bits for pre-emption priority 1 bits for subpriority
 - NVIC_PriorityGroup_4: 4 bits for pre-emption priority 0 bits for subpriority
-- 
+
 #### Cấu hình EXTI.
 RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
 - Đầu tiên, để sử dụng GPIO như ngắt ngoài, cần cấp clock cho ngoại vi AFIO.

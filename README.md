@@ -637,6 +637,304 @@ uint8_t Read_I2C_Data(){
 }
 ```
 - Sau đó kết thúc bằng tín hiệu stop.
+# UART Software & UART Hardware
+## UART Software
+### Cấu hình GPIO
+UART chỉ sử dụng 2 chân để truyền, đó là TX và RX.
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20200948.png)
+
+Xác định các chân sử dụng cho UART là bước đầu tiên. UART soft không yêu cầu các chân cụ thể nên ta có thể sử dụng chân bất kì:
+```
+#define TX_Pin GPIO_Pin_9
+#define RX_Pin GPIO_Pin_10
+#define UART_GPIO GPIOA
+```
+TX là chân Transmit nên được cấu hình OUTPUT, RX là chân Receive nên sẽ được cấu hình INPUT.
+```
+void GPIO_Config() {
+    // Khai báo biến cấu trúc để cấu hình GPIO
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    // Bật xung nhịp cho Port GPIOB để chuẩn bị sử dụng chân GPIO
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+    // --- Cấu hình chân TX ---
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;    // Chế độ Output Push-Pull (xuất dữ liệu số)
+    GPIO_InitStructure.GPIO_Pin = TX_Pin;               // Chọn chân TX_Pin để cấu hình
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;   // Tốc độ chuyển mức logic tối đa 50MHz
+
+    // Áp dụng cấu hình cho chân TX
+    GPIO_Init(UART_GPIO, &GPIO_InitStructure);
+
+    // --- Cấu hình chân RX ---
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE); // (Dòng này thực ra không cần thiết vì đã bật xung ở trên)
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; // Chế độ Input Floating (nhận tín hiệu vào)
+    GPIO_InitStructure.GPIO_Pin = RX_Pin;                 // Chọn chân RX_Pin để cấu hình
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;     // Tốc độ (không ảnh hưởng ở chế độ input)
+
+    // Áp dụng cấu hình cho chân RX
+    GPIO_Init(UART_GPIO, &GPIO_InitStructure);
+}
+```
+### UART Software code
+Tốc độ baudrate được xác định bởi thời gian truyền đi 1 bit. Ở bài này ta dùng tốc độ phổ thông 9600, ứng với mỗi bit là 105us.
+```
+//Baaurate = 9600bits/s >> 0.10467ms for 1 bit = 104,67 ús
+//=>> time delay ~~105 us
+#define BRateTime 105
+```
+Ở chế độ nghỉ (Không truyền), đường TX sẽ được giữ ở mức cao. hàm UART_Config() thiết lập chế độ nghỉ cho đường truyền:
+```
+void UART_Config(){
+	GPIO_SetBits(UART_GPIO, TX_Pin);
+	delay_us(1);
+}
+```
+#### Hàm truyền: 
+Hàm truyền sẽ truyền lần lượt 8 bit trong byte dữ liệu, sau khi tín hiệu start được gửi đi.
+- Tạo start, delay 1 period time.
+	- Truyền bit dữ liệu. mỗi bi truyền trong 1 period time.
+	- Dịch 1 bit.
+- Tạo stop, delay tương ứng với số bit stop
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20201711.png)
+```
+void UART_Transmit(const char DataValue) {
+    // Gửi Start Bit
+    GPIO_WriteBit(UART_GPIO, RX_Pin, Bit_RESET);  // Đặt mức thấp (0) để báo hiệu bắt đầu truyền dữ liệu
+    delay_us(BRateTime);                         // Đợi một khoảng thời gian tương ứng với tốc độ baud (bit rate)
+
+    // Gửi 8 bit dữ liệu
+    for (unsigned char i = 0; i < 8; i++) {       // Lặp qua từng bit trong 1 byte dữ liệu
+        if (((DataValue >> i) & 0x1) == 0x1) {   // Kiểm tra bit thứ i là 1 hay 0
+            GPIO_WriteBit(UART_GPIO, RX_Pin, Bit_SET);  // Nếu bit là 1, xuất mức cao (1)
+        } else {
+            GPIO_WriteBit(UART_GPIO, RX_Pin, Bit_RESET); // Nếu bit là 0, xuất mức thấp (0)
+        }
+        delay_us(BRateTime);  // Chờ một khoảng thời gian để giữ trạng thái mức logic hiện tại
+    }
+
+    // Gửi Stop Bit
+    GPIO_WriteBit(UART_GPIO, RX_Pin, Bit_SET);   // Đặt mức cao (1) để báo hiệu kết thúc truyền dữ liệu
+    delay_us(BRateTime);                         // Đợi thêm một khoảng thời gian để ổn định
+}
+```
+Data truyền đi sẽ được thêm bit parity tùy theo cấu hình parity bit là chẵn/lẻ hay không dùng pairty bit:
+```
+// Định nghĩa kiểu dữ liệu enum (liệt kê) để cấu hình chế độ chẵn lẻ (Parity Mode)
+typedef enum {
+    Parity_Mode_NONE,  // Không sử dụng bit chẵn lẻ (No Parity)
+    Parity_Mode_ODD,   // Sử dụng chế độ chẵn lẻ lẻ (Odd Parity)
+    Parity_Mode_EVENT  // Sử dụng chế độ chẵn lẻ chẵn (Even Parity)
+} Parity_Mode;  // Tên của kiểu dữ liệu liệt kê là Parity_Mode
+```
+Có thể tạo bit parity bằng cách đếm số bit 1, sau đó thêm vào cuối chuỗi bit bit 0 hoặc 1 tương ứng:
+```
+// Hàm tạo bit chẵn lẻ (Parity Bit) dựa trên chế độ chẵn lẻ được chọn
+uint8_t Parity_Generate(uint8_t data, Parity_Mode Mode) {
+    uint8_t count = 0;  // Biến đếm số lượng bit '1' trong dữ liệu
+
+    // Đếm số bit '1' trong dữ liệu đầu vào (data)
+    for (int i = 0; i < 8; i++) {  // Lặp qua từng bit trong 8 bit dữ liệu
+        if (data & 0x01) {  // Kiểm tra nếu bit cuối cùng là '1'
+            count++;  // Tăng biến đếm
+        }
+        data >>= 1;  // Dịch phải 1 bit để kiểm tra bit tiếp theo
+    }
+
+    // Xử lý chế độ chẵn lẻ theo yêu cầu
+    switch (Mode) {
+        case Parity_Mode_NONE:  // Không sử dụng chẵn lẻ
+            return data;  // Trả về dữ liệu gốc không thay đổi
+            break;
+
+        case Parity_Mode_ODD:  // Chế độ chẵn lẻ lẻ
+            if (count % 2) {  // Nếu số lượng bit '1' là lẻ
+                return ((data << 1) | 1);  // Giữ nguyên, thêm 1 vào cuối
+            } else {  // Nếu số lượng bit '1' là chẵn
+                return (data << 1);  // Thêm 0 vào cuối để thành lẻ
+            }
+            break;
+
+        case Parity_Mode_EVENT:  // Chế độ chẵn lẻ chẵn
+            if (!(count % 2)) {  // Nếu số lượng bit '1' là chẵn
+                return ((data << 1) | 1);  // Giữ nguyên, thêm 1 vào cuối
+            } else {  // Nếu số lượng bit '1' là lẻ
+                return (data << 1);  // Thêm 0 vào cuối để thành chẵn
+            }
+            break;
+
+        default:  // Trường hợp không hợp lệ
+            return data;  // Trả về dữ liệu gốc
+            break;
+    }
+}
+```
+#### Hàm nhận:
+Hàm nhận sẽ nhận lần lượt 8 bit 
+- Chờ tín hiệu start từ thiết bị gửi.
+- Delay 1,5 period time.
+	- Đọc data trên RX, ghi vào biến.
+	- Dịch 1 bit.
+	- Delay 1 period time.
+- Delay 0,5 period time và đợi stop bit.
+
+```
+// Hàm nhận dữ liệu UART 8 bit qua giao thức truyền thông nối tiếp
+unsigned char UART_Receive(void) {
+    unsigned char DataValue = 0;  // Biến lưu trữ dữ liệu nhận được
+
+    // Chờ tín hiệu Start Bit (mức thấp - 0) từ chân RX_Pin
+    while (GPIO_ReadInputDataBit(UART_GPIO, RX_Pin) == 1);
+
+    // Delay để đồng bộ với tốc độ baud rate
+    delay_us(BRateTime);         // Chờ hết khoảng thời gian của Start Bit
+    delay_us(BRateTime / 2);     // Delay thêm một nửa bit để định vị trung tâm bit đầu tiên
+
+    // Nhận dữ liệu 8 bit
+    for (unsigned char i = 0; i < 8; i++) {  // Vòng lặp xử lý từng bit dữ liệu
+        // Đọc bit hiện tại từ chân RX_Pin
+        if (GPIO_ReadInputDataBit(UART_GPIO, RX_Pin) == 1) {
+            DataValue += (1 << i);  // Gán bit đọc được vào vị trí tương ứng trong DataValue
+        }
+        delay_us(BRateTime);  // Delay để chuyển sang bit tiếp theo
+    }
+
+    // Kiểm tra Stop Bit
+    if (GPIO_ReadInputDataBit(UART_GPIO, RX_Pin) == 1) {  // Stop Bit phải ở mức cao (1)
+        delay_us(BRateTime / 2);  // Delay thêm để đảm bảo đủ thời gian truyền
+        return DataValue;  // Trả về dữ liệu đã nhận được
+    }
+}
+```
+Sau khi nhận được data, có thể tiến hành kiểm tra chẵn/lẻ:
+```
+// Hàm kiểm tra bit chẵn lẻ (Parity Bit) cho dữ liệu đầu vào
+uint8_t Parity_Check(uint8_t data, Parity_Mode Mode) {
+    uint8_t count = 0;  // Biến đếm số bit '1' trong dữ liệu
+
+    // Đếm số bit '1' trong dữ liệu (data)
+    for (int i = 0; i < 8; i++) {  // Lặp qua từng bit của dữ liệu (8 bit)
+        if (data & 0x01) {  // Kiểm tra bit cuối cùng có bằng '1' không
+            count++;  // Tăng biến đếm nếu bit cuối cùng là '1'
+        }
+        data >>= 1;  // Dịch phải 1 bit để kiểm tra bit tiếp theo
+    }
+
+    // Xử lý kiểm tra Parity theo từng chế độ được chọn
+    switch (Mode) {
+        case Parity_Mode_NONE:  // Không kiểm tra bit chẵn lẻ
+            return 1;  // Luôn trả về 1 (mặc định là hợp lệ)
+            break;
+
+        case Parity_Mode_ODD:  // Chế độ lẻ (Odd Parity)
+            return (count % 2);  // Trả về 1 nếu số bit '1' là lẻ, ngược lại trả về 0
+            break;
+
+        case Parity_Mode_EVENT:  // Chế độ chẵn (Even Parity)
+            return (!(count % 2));  // Trả về 1 nếu số bit '1' là chẵn, ngược lại trả về 0
+            break;
+
+        default:  // Trường hợp không xác định
+            return 0;  // Trả về 0 để báo lỗi
+            break;
+    }
+}
+```
+## UART Hardware
+### Cấu hình GPIO
+[alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/b852de425287b4550d55a030ab9d076b8cafb747/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-01%20202801.png)
+Các bộ UART trong STM32F1 được xác định sẵn các chân GPIO
+Tương tự Software, TX sẽ là UOTPUT và RX sẽ là INPUT.
+```
+void GPIO_Config() {
+    GPIO_InitTypeDef GPIOInitStruct;
+
+    // Cấu hình chân GPIOA Pin 10 làm đầu vào với chế độ "floating" (không kéo lên/kéo xuống)
+    GPIOInitStruct.GPIO_Pin = GPIO_Pin_10;                  // Chọn chân GPIOA Pin 10
+    GPIOInitStruct.GPIO_Mode = GPIO_Mode_IN_FLOATING;       // Cấu hình chế độ đầu vào không kéo lên/kéo xuống
+    GPIO_Init(GPIOA, &GPIOInitStruct);                      // Khởi tạo cấu hình cho GPIOA Pin 10
+
+    // Cấu hình chân GPIOA Pin 9 làm đầu ra chức năng thay thế (Alternate Function Push-Pull)
+    GPIOInitStruct.GPIO_Pin = GPIO_Pin_9;                   // Chọn chân GPIOA Pin 9
+    GPIOInitStruct.GPIO_Speed = GPIO_Speed_50MHz;           // Đặt tốc độ chân GPIO là 50MHz
+    GPIOInitStruct.GPIO_Mode = GPIO_Mode_AF_PP;             // Cấu hình chế độ Alternate Function Push-Pull
+    GPIO_Init(GPIOA, &GPIOInitStruct);                      // Khởi tạo cấu hình cho GPIOA Pin 9
+}
+```
+### Cấu hình UART
+Tương tự các ngoại vi khác, các tham số Uart được cấu hình trong Struct USART_InitTypeDef:
+- USART_Mode: Cấu hình chế độ hoạt động cho UART:
+	- USART_Mode_Rx: Cấu hình truyền.
+	- USART_Mode_Tx: Cấu hình nhận.
+	- Có thể cấu hình cả 2 cùng lúc.
+- USART_BaudRate: Cấu hình tốc độ baudrate cho uart.
+- USART_HardwareFlowControl: Cấu hình chế độ bắt tay cho uart.
+- USART_WordLength: Cấu hình số bit mỗi lần truyền.
+- USART_StopBits: Cấu hình số lượng stopbits.
+- USART_Parity: cấu hình bit kiểm tra chẳn, lẻ.
+```
+void UART_Config() {
+    // Khởi tạo cấu hình USART
+
+    // Đặt tốc độ baud là 9600 bps (bit per second)
+    USARTInitStruct.USART_BaudRate = 9600;                        
+
+    // Thiết lập độ dài từ truyền là 8 bit
+    USARTInitStruct.USART_WordLength = USART_WordLength_8b;       
+
+    // Thiết lập 1 bit dừng (Stop Bit) sau mỗi dữ liệu truyền
+    USARTInitStruct.USART_StopBits = USART_StopBits_1;            
+
+    // Không sử dụng bit chẵn/lẻ (Parity Bit)
+    USARTInitStruct.USART_Parity = USART_Parity_No;               
+
+    // Không sử dụng điều khiển luồng cứng (Hardware Flow Control)
+    USARTInitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;  
+
+    // Bật chế độ truyền (Tx) và nhận (Rx)
+    USARTInitStruct.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;   
+
+    // Áp dụng cấu hình cho USART1
+    USART_Init(USART1, &USARTInitStruct);                        
+
+    // Kích hoạt USART1
+    USART_Cmd(USART1, ENABLE);                                   
+}
+```
+***Hàm USART_SendData(USART_TypeDef* USARTx, uint16_t Data), truyền data từ UARTx.** Data này đã được thêm bit chẵn/lẻ tùy cấu hình.
+***Hàm USART_ReceiveData(USART_TypeDef* USARTx), nhận data từ UARTx.**
+***Hàm USART_GetFlagStatus(USART_TypeDef* USARTx, uint16_t USART_FLAG)** trả về trạng thái cờ USART_FLAG tương ứng:
+**USART_FLAG_TXE:** Cờ truyền, set lên 1 nếu quá trình truyền hoàn tất.
+**USART_FLAG_RXNE:** Cờ nhận, set lên 1 nếu quá trình nhận hoàn tất.
+**USART_FLAG_IDLE:** Cờ báo đường truyền đang ở chế độ Idle.
+**USART_FLAG_PE:** Cờ báo lỗi Parity.
+
+Quá trình truyền/nhận có thể mô tả như sau:
+
+- Bắt đầu truyền/nhận, UART xóa hết data trong thanh ghi DR để đảm bảo data đúng.
+- Truyền: Gửi đi từng byte data. Sau đó đợi cờ TXE bật lên.
+- Nhận: Đọc data từ bộ UART, chờ cờ RNXE bật lên.
+- Đối với mảng dữ liệu, lặp lại quá trình cho từng byte.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -646,6 +944,7 @@ uint8_t Read_I2C_Data(){
 
 
 	
+
 
 
 

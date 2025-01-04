@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/20cb32ff-863d-49fe-b2d9-c22a13463c46)# Embedded-in-Automotive
+
 # Interrupt - Timer
 Ngắt là một sự kiện khẩn cấp xảy ra bên trong hoặc bên ngoài vi điều khiển, yêu cầu dừng chương trình chính để thực thi chương trình xử lý ngắt.
 Các loại ngắt thông dụng:

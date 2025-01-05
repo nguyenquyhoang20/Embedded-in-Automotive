@@ -1006,6 +1006,76 @@ Trước khi cho phép UART hoạt động, cần kích hoạt cho phép ngắt 
 ### Hàm phục vụ ngắt.
 Hàm **USARTx_IRQHandler()** sẽ được gọi nếu xảy ra ngắt trên Line ngắt UART đã cấu hình. Trong hàm phục vụ ngắt, ta kiểm tra ngắt đến là ngắt nhận RXNE hay ngắt truyền TX, bằng hàm **USART_GetITStatus.** Tùy theo tín hiệu ngắt mà có thể lập trình tác vụ khác nhau. Sau khi thực thi xong, có thể xóa cờ ngắt để đảm bảo không còn ngắt trên line (thông thường cờ ngắt sẽ tự động xóa).
 
+#  Analog Digital Converter (ADC)
+ADC (Analog-to-Digital Converter) là 1 mạch điện tử lấy điện áp tương tự là  m đầu vào và chuyển đổi nó thành dữ liệu số (1 giá trị đại diện cho mức điện áp trong mã nhị phân).
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/62e9a769194ecfbdeed2e5d64e11e984240f0156/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20144608.png)
+
+Về cơ bản, ADC hoạt động theo cách chia mức tín hiệu tương tự thành nhiều mức khác nhau. Các mức được biểu diễn bằng các bit nhị phân.
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/c51b2ae33ebca7b9e2a7d952f2ede20f0370a4a4/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20144637.png)
+
+Bằng việc so sánh giá trị điện áp mỗi lần lấy mẫu với 1 mức nhất định, ADC chuyển đổi tín hiệu tương tự và mã hóa các giá trị về giá trị nhị phân tương ứng.
+
+### Các khái niệm cần biết:     
+Độ phân giải (resolution): dùng để chỉ số bit cần thiết để chứa hết các mức giá trị số (digital) sau quá trình chuyển đổi ở ngõ ra. Bộ chuyển đổi ADC của STM32F103C8T6 có độ phân giải mặc định là 12 bit, tức là có thể chuyển đổi ra 2^12= 4096 giá trị ở ngõ ra số.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/62e9a769194ecfbdeed2e5d64e11e984240f0156/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20150843.png) 
+
+  Tần số lấy mẫu: là khái niệm được dùng để chỉ tốc độ lấy mẫu và số hóa của bộ chuyển đổi, thời gian giữa 2 lần số hóa càng ngắn độ chính xác càng cao. Khả năng tái tạo lại tín hiệu càng chính xác. Đó gọi là chu kỳ lấy mẫu. Được tính bằng : thời gian lấy mẫu tín hiệu+ thời gian chuyển đổi.
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/a63a0a414dc1232f5ee09005ebd8ff24de3df7b6/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20154948.png)
+
+## ADC trong STM32.
+Dưới đây là khối ADC của Stm32f103. STM32F1 hỗ trợ 3 bộ ADC với nhiều kênh với các chế độ.
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/62e9a769194ecfbdeed2e5d64e11e984240f0156/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20151032.png)
+
+Giá trị điện áp đầu vào bộ ADC được cung cấp trên chân VDDA và thường lấy bằng giá trị cấp nguồn cho vi điều khiển VDD(+3V3). 
+
+STM32F103C8 có 2 kênh ADC đó là ADC1 và ADC2, mỗi kênh có tối đa là 9 channel với nhiều mode hoạt động như: single, continuous,scan hoặc discontinuous. Kết quả chuyển đổi được lưu trữ trong thanh ghi 16 bit. 
+
+- Độ phân giải 12 bit tương ứng với giá trị maximum là 4095.
+- Có các ngắt hỗ trợ.
+- Single mode hay Continuous mode.
+- Tự động calib và có thể điều khiển hoạt động ADC bằng xung Trigger.
+- Thời gian chuyển đổi nhanh : 1us tại tần số 65Mhz.
+- Điện áp cung cấp cho bộ ADC là 2.4V -> 3.6V. Nên điện áp Input của thiết bị có ADC 2.4V ≤ VIN ≤ 3.6V.
+- Có bộ DMA giúp tăng tốc độ xử lí.
+
+ Giả sử ta cần đo điện áp tối thiểu là 0V và tối đa là 3.3V, trong STM32 sẽ chia 0 → 3.3V thành 4096 khoảng giá trị (từ 0 → 4095, do 212 = 4096), giá trị đo được từ chân IO tương ứng với 0V sẽ là 0, tương ứng với 1.65V là 2047 và tương ứng 3.3V sẽ là 4095.
+
+### Cấu hình ADC cho MCU STM32F103.
+#### Cấu hình GPIO.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/62e9a769194ecfbdeed2e5d64e11e984240f0156/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20151237.png)
+
+ADC hỗ trợ rất nhiều kênh(ngõ vào), được cấu hình sẵn ở các chân GPIO của các Port và từ các chân khác.
+Nếu sử dụng các kênh ngõ vào từ GPIO. Các chân dùng làm ngõ vào cho ADC sẽ được cấu hình Mode AIN.(Analoge Input).
+
+Đầu tiên, các bộ ADC được cấp xung từ RCC APB2, để bộ ADC hoạt động cần cấp xung cho cả ADC để tạo tần số lấy mẫu tín hiệu và cấp xung cho GPIO của Port ngõ vào.
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/62e9a769194ecfbdeed2e5d64e11e984240f0156/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-05%20151326.png)
+
+#### Cấu hình ADC.
+
+Các tham số cấu hình cho bộ ADC được tổ chức trong Struct ADC_InitTypeDef, Gồm:
+
+- **ADC_Mode:**  Cấu hình chế độ hoạt động cho ADC là đơn kênh(Independent) hay đa kênh, ngoài ra còn có các chế độ ADC chuyển đổi tuần tự các kênh (regularly) hay chuyển đổi khi có kích hoạt từ phần mềm hay các tín hiệu khác (injected).
+- **ADC_NbrOfChannel:** Chọn kênh ADC để cấu hình, có 16 kênh tương ứng với 16 chân IO cấu hình sẵn (xem datasheet) và 2 kênh Vref và TempSensor để quy chiếu điện áp, đo điện áp Pin vv,.
+- **ADC_ContinuousConvMode:** Cấu hình bộ ADC có chuyển đổi liên tục hay không, Enable để cấu hình ADC  chuyển đổi lien tục, nếu cấu hình Disable, ta phải gọi lại lệnh đọc ADC để bắt đầu quá trình chuyển đổi. 
+- **ADC_ExternalTrigConv:** Enable để sử dụng tín hiệu ngoài để kích hoạt ADC, Disable nếu không sử dụng.
+- **ADC_ScanConvMode:** Cấu hình chế độ quét ADC lần lượt từng kênh. Enable nếu sử dụng chế độ quét này.
+- **ADC_DataAlign:** Cấu hình căn lề cho data. Vì bộ ADC xuất ra giá trị 12bit, được lưu vào biến 16 hoặc 32 bit nên phải căn lề các bit về trái hoặc phải.
+Ngoài các tham số trên, cần cấu hình thêm thời gian lấy mẫu, thứ tự kênh ADC khi quét cho kênh ADC,
+***ADC_RegularChannelConfig(ADC_TypeDef* ADCx, uint8_t ADC_Channel, uint8_t Rank, uint8_t ADC_SampleTime):**
+
+- **Rank:** Thứ tự của kênh ADC.
+- **SampleTime:** Thời gian lấy mẫu tín hiệu.
+
+Ngoài ra, ADC trên STM32 còn hỗ trợ bộ Hiệu chuẩn giá trị (Calibrate ) để giảm sai số do điện dung bên trong gây ra. Theo nhà sản xuất, nên hiệu chỉnh ADC ngay khi bật nguồn cho bộ ADC.
+- Việc Hiệu chuẩn bắt đầu bằng việc đặt lại giá trị thanh ghi Calibrate. ***(Hàm ADC_ResetCalibration(ADC_TypeDef* ADCx))***
+
+- Sau khi thanh ghi reset xong, Bật chế độ Hiệu chauanr cho ADC và đợi cho việc hiệu chuẩn hoàn tất.
+
+- Bắt đầu quá trình chuyển dổi ADC.
 
 
 

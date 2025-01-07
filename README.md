@@ -1132,6 +1132,237 @@ Các tham số cho bộ DMA được cấu hình trong struct DMA_InitTypeDef. G
 
 Sau khi cấu hình cho DMA xong, chỉ cần gọi hàm DMA_Cmd cho ngoại vi tương ứng. Bộ DMA sẽ tự động truyền nhận data cũng như ghi dữ liệu vào vùng nhớ cụ thể. 
 
+# bộ nhớ Flash.
+Bộ nhớ (tiếng Anh: memory) là nơi lưu trữ chương trình hoặc là nơi chứa các thông tin mà CPU đang làm việc.
+ Có 2 kiểu bộ nhớ cơ bản:
+- RAM (Random access memory) là bộ nhớ lưu các dữ liệu mà CPU đang làm việc. Dữ liệu trong RAM sẽ bị xóa khi mất điện.
+- ROM/EPROM/EEPROM hoặc flash: là bộ nhớ lưu trữ chương trình vận hành của vi điều khiển, chúng được ghi khi vi điều khiển được nạp chương trình. Nội dung trong các loại bộ nhớ này không bị mất khi mất điện hoặc reset.
+
+**RAM**
+- Tốc độ đọc/ghi nhanh.
+- Dữ liệu bị mất khi ngưng cấp nguồn.
+**FLASH**
+- Tốc độ ghi chậm.
+- Tốc độ đọc nhanh.
+- Dữ liệu không bị mất khi ngưng cấp điện.
+- Phải xóa Flash trước khi tiến hành ghi lại dữ liệu. Không thể xóa từng byte mà phải xóa theo Page (1 vùng nhớ được phân chia kích thước rõ ràng).
+- Chỉ có thể đọc hoặc ghi theo khối 2/4 byte.
+**EPROM**
+- Tương tự FLASH, tuy nhiên có thể đọc/ghi theo từng byte.
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/49e52ca65ed005fa5420489e49267c3c33e6122b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-07%20141854.png)
+
+### Bộ nhớ chương trình: 
+- 512MB đầu tiên được dành riêng cho vùng code.
+- System Memory – Bộ nhớ hệ thống : Bộ nhớ hệ thống là vùng ROM dành riêng cho bộ nạp khởi động (Boot Loader). Mỗi họ STM32 cung cấp một số Boot Loader khác nhau được lập trình sẵn vào chip trong quá trình sản xuất. Những Boot Loader này có thể được sử dụng để tải code từ một số thiết bị ngoại vi, bao gồm USART, USB và CAN Bus.
+- Option Bytes – Vùng tùy chọn byte : Vùng byte tùy chọn chứa một loạt cờ bit có thể được sử dụng để định cấu hình một số khía cạnh của MCU (như bảo vệ đọc ghi FLASH, v.v…
+
+### Bộ nhớ FLash:
+- **Địa chỉ bộ nhớ Flash bắt đầu từ 0x0000.0000, nhưng trong Vi điều khiển STM32, vùng nhớ code được lưu từ địa chỉ 0x0800.0000, khi chúng ta nạp xuống, nó sẽ mặc định nạp chương trình từ địa chỉ này, với MSP - Main Stack Pointer ở địa chỉ 0x0800.0000 và Vector Table bắt đầu từ địa chỉ 0x0800.0004 (Reset_Handler).**
+- 
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/49e52ca65ed005fa5420489e49267c3c33e6122b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-07%20144942.png)
+
+- **Bộ nhớ Flash được tổ chức gồm một khối chính (Main Block) có dung lượng lên đến 128kB (hoặc 64kB). V ìsố lần ghi/xóa ảnh hưởng tới tuổi thọ của Flash cũng như để dễ quản lý, bộ nhớ Flash trong STM32 được chia nhỏ thành các Page**
+
+- **Flash của STM32F1 được chia thành 128 Page (hoặc 64 Page đối với 64kB). Và một khối thông tin (information block). Có địa chỉ bắt đầu từ 0x0800 0000.**
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/49e52ca65ed005fa5420489e49267c3c33e6122b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-07%20145022.png)
+
+**Bộ nhớ Flash có thể được thao tác ghi trên từng Word (4 bytes) hoặc halfword (2byte) , nhưng lại chỉ có thể xóa theo từng Page.    
+Vì bộ nhớ Flash còn được dùng để lưu trữ chương trình chính nên khi muốn lưu dữ liệu vào Flash, khuyến nghị là nên lưu vào những Page cuối (như Page 127 hoặc 64).**
+
+- Để đọc dữ liệu từ Flash, đơn giản chỉ cần truy cập đến địa chỉ của vùng Flash và lấy dữ liệu cần thiết. 
+
+- **Quá trình ghi dữ liệu sẽ phức tạp hơn, vì Flash chỉ cho phép đoc/ ghi 2/4 byte và phải yêu cầu xóa trước khi ghi. Ngoài ra không thể xóa từng byte mà phải xóa cả page bộ nhớ tại đó.**
+
+**Vì bộ nhớ Flash là nơi lưu chương trình, để tránh trường hợp vô tình làm thay đổi dữ liệu chương trình, Flash có 1 cơ chế đơn giản là LOCK và UNLOCK vùng nhớ.
+Cụ thể Flash sẽ được đưa vào trạng trái LOCK sau khi reset để bảo vệ dữ liệu. Khi người dùng cần thao tác với vùng nhớ thì cần phải UNLOCK Flash để sử dụng.
+Như đã đề cập ở trên, bộ nhớ FLash không thể cập nhật dữ liệu như RAM hay ROM, vì vậy muốn ghi dữ liệu thì trước hết phải xóa vùng nhớ Flash đó trước.
+Thư viện SPL cung cấp thư viện "stm32f10x_flash.h", có hỗ trợ sẵn các hàm phục vụ cho các thao tác trên Flash.**
+
+### Các hàm LOCK và UNLOCK FLash:
+- **void FLASH_Unlock(void):** Unlock bộ điều khiển xóa Flash. Hàm này Unlock cho tất cả vùng nhớ trong Flash.
+- **void FLASH_UnlockBank1(void):** Tương tự hàm trên, tuy nhiên hàm này chỉ Unlock cho Bank đầu tiên. Vì SMT32F103C8T6 chỉ có 1 Bank duy nhất nên chức năng tương tự hàm trên.
+- **void FLASH_UnlockBank2(void):** Unlock cho Bank thứ 2.
+- __*Các hàm Unlock được gọi trước quá trình xóa hay ghi dữ liệu vào Flash để đảm bảo trạng thái của Flash là Unlock.__
+- **void FLASH_Lock(void):** Lock bộ điều khiển xóa Flash cho toàn bộ vùng nhớ Flash.
+- **void FLASH_LockBank1(void) và void FLASH_LockBank2(void):** Lock bộ điều khiển xóa Flash cho Bank 1 hoặc 2 tương ứng (STM32F103C8T6 chỉ có 1 Bank duy nhất).
+- __*Các hàm Lock thường được gọi sau khi thực hiện xóa/ghi dữ liệu vào Flash để đưa vùng nhớ vào trạng thái Lock.__
+Ví dụ trong hàm xóa Flash, Flash được Unlock bởi hàm FLASH_Unlock();, sau khi xóa xong, hàm FLASH_Lock(); đưa vùng nhớ trở về trạng thái Lock.
+```
+void Flash_Erase(uint32_t addresspage) {
+    // Mở khóa bộ nhớ Flash để cho phép ghi hoặc xóa dữ liệu.
+    FLASH_Unlock();
+
+    // Xóa bộ nhớ Flash tại địa chỉ được chỉ định.
+    // Chưa có đoạn code cụ thể để thực hiện việc xóa trang Flash tại đây.
+    // Ví dụ: cần thêm dòng lệnh gọi hàm FLASH_ErasePage(addresspage).
+
+    // Khóa lại bộ nhớ Flash để bảo vệ dữ liệu tránh bị ghi đè hoặc xóa nhầm.
+    FLASH_Lock();
+}
+```
+### Các hàm xóa Flash: 
+Flash chỉ có thể được xóa theo từng Page (ở STM32F103 là 1Kb mỗi Page) hoặc xóa theo cả Bank (STM32F103 chỉ có 1 Bank):
+- **FLASH_Status FLASH_EraseAllBank1Pages(void):** Xóa tất cả các Page trong Bank 1 của Flash. 
+- **FLASH_Status FLASH_EraseAllBank2Pages(void):** Xóa tất cả các Page trong Bank 2 của Flash. 
+- **FLASH_Status FLASH_EraseAllPages(void):** Xóa toàn bộ Flash.
+- **FLASH_Status FLASH_ErasePage(uint32_t Page_Address):** Xóa 1 page cụ thể trong Flash, cụ thể là Page bắt đầu bằng địa chỉ Page_Address.
+Sơ đồ quá trình xóa Flash mô tả như hình sau:
+
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/49e52ca65ed005fa5420489e49267c3c33e6122b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-07%20150535.png)
+
+- Đầu tiên, kiểm tra cờ LOCK của Flash, nếu Cờ này đang được bật, Flash đang ở chế độ Lock và cần phải được Unlock trước khi sử dụng.
+- Sau khi FLash đã Unlock, cờ CR_PER được set lên 1.
+- Địa chỉ của Page cần xóa được ghi vào FAR.
+- Set bit CR_STRT lên 1 để bắt đầu quá tình xóa.
+- Kiểm tra cờ BSY đợi hoàn tất quá trình xóa.
+Sau khi được xóa, vùng nhớ Flash sẵn sàng cho việc ghi dữ liệu.
+Sơ đồ quá trình ghi dữ liệu:
+![alt](https://github.com/nguyenquyhoang20/Embedded-in-Automotive/blob/49e52ca65ed005fa5420489e49267c3c33e6122b/%E1%BA%A2nh%20ch%E1%BB%A5p%20m%C3%A0n%20h%C3%ACnh%202025-01-07%20150720.png)
+- Tương tự quá trình xóa, đầu tiên Cờ LOCK được kiểm tra.
+- Sau khi xác nhận đã Unlock, CỜ CR_PG được set lên 1.
+- Quá trình ghi dữ liệu vào địa chỉ tương ứng sẽ được thực thi.
+- Kiểm tra cờ BSY để đợi quá trình ghi hoàn tất.
+- **FlagStatus FLASH_GetFlagStatus(uint32_t FLASH_FLAG): hàm này trả về trạng thái của Flag. Ở bài này ta sẽ dùng hàm này để kiểm tra cờ FLASH_FLAG_BSY. Cờ này báo hiệu rằng Flash đang bận (Xóa/Ghi) nếu được set lên 1.**
+Khi đó, có thể viết hàm để xóa 1 Page Flash như sau:
+```
+void Flash_Erase(uint32_t addresspage) {
+    // Mở khóa bộ nhớ Flash để cho phép ghi hoặc xóa dữ liệu.
+    FLASH_Unlock();
+    
+    // Xóa trang bộ nhớ Flash tại địa chỉ cụ thể (addresspage).
+    FLASH_ErasePage(addresspage);
+    
+    // Chờ cho đến khi quá trình xóa hoàn tất (kiểm tra cờ bận - BSY).
+    while (FLASH_GetFlagStatus(FLASH_FLAG_BSY) == 1);
+
+    // Khóa lại bộ nhớ Flash để bảo vệ dữ liệu tránh bị ghi đè hoặc xóa nhầm.
+    FLASH_Lock();
+}
+```
+- **Với tham số uint32_t addresspage là địa chỉ bắt đầu của Page cần xóa. Ví dụ muốn xóa page 0, tham số truyền vào sẽ là 0x08000000 (vùng nhớ bắt đầu page 0), page số 124, tham số truyền vào sẽ là 0x08000000 + 123*1024 (vì mỗi page có kích thước 1Kb-1024 bytes).**
+Sau khi xóa xong, vùng nhớ tương ứng ở Flash sẽ sẵn sàng cho việc ghi data.
+
+### Các hàm ghi data vào Flash:
+có thể ghi data vào flash với kích thước mỗi 2 hoặc 4 byte tương ứng với các hàm sau:
+- **FLASH_Status FLASH_ProgramHalfWord(uint32_t Address, uint16_t Data):**  Ghi dữ liệu vào vùng nhớ Address với kích thước mỗi 2 byte (Halfword).
+- **FLASH_Status FLASH_ProgramWord(uint32_t Address, uint32_t Data):** Ghi dữ liệu vào vùng nhớ Address với kích thước mỗi 4 byte (Word).
+
+**Hàm WriteInt ghi 1 giá trị kiểu int vào Flash, tương ứng với 2 byte data.**
+```
+void Flash_WriteInt(uint32_t address, uint16_t value) {
+    // Mở khóa bộ nhớ Flash để cho phép ghi dữ liệu.
+    //Nếu không mở khóa, thao tác ghi sẽ bị từ chối.
+    FLASH_Unlock();
+    
+   //Ghi giá trị 16-bit (2 byte) vào địa chỉ cụ thể được chỉ định bởi address.
+   //Địa chỉ phải được căn chỉnh (aligned) với 2 byte (0x00, 0x02, 0x04, v.v.).Nếu không, có thể xảy ra lỗi hoặc dữ liệu ghi không chính xác.
+    FLASH_ProgramHalfWord(address, value);
+
+    // Chờ cho đến khi quá trình ghi hoàn tất (kiểm tra cờ bận - BSY).
+    while (FLASH_GetFlagStatus(FLASH_FLAG_BSY) == 1);
+
+    // Khóa lại bộ nhớ Flash để bảo vệ dữ liệu tránh bị ghi đè hoặc xóa nhầm.
+    FLASH_Lock();
+}
+```
+**Tương tự, hàm WriteFloat ghi 1 giá trị float vào Flash, tương ứng 4 byte data.**
+```
+void Flash_WriteFloat(uint32_t address, float value) {
+    // Mở khóa bộ nhớ Flash để cho phép ghi dữ liệu.
+    FLASH_Unlock();
+
+    // Khai báo mảng 4 byte (32 bit) để lưu trữ giá trị kiểu float.
+    uint8_t data[4];
+
+    // Ép kiểu con trỏ để gán giá trị float vào mảng byte.
+    *(float*)data = value;
+
+    // Ghi giá trị 32-bit (Word) vào địa chỉ cụ thể trong bộ nhớ Flash.
+    FLASH_ProgramWord(address, *(uint32_t*)data);
+
+    // Chờ cho đến khi quá trình ghi hoàn tất (kiểm tra cờ bận - BSY).
+    while (FLASH_GetFlagStatus(FLASH_FLAG_BSY) == 1);
+
+    // Khóa lại bộ nhớ Flash để bảo vệ dữ liệu tránh bị ghi đè hoặc xóa nhầm.
+    FLASH_Lock();
+}
+```
+**Ở đây, giá trị float được chia thành 4 byte (uint8_t data[4]), Sau đó được truyền đi bằng hàm FLASH_ProgramWord.**
+__Flash_WriteNumByte(uint32_t address, uint8_t *data, int num):__ Ghi vào Flash 1 chuỗi num byte có địa chỉ từ data vào địa chỉ address trong Flash.
+``` 
+// Hàm ghi một số byte dữ liệu vào bộ nhớ Flash.
+void Flash_WriteNumByte(uint32_t address, uint8_t *data, int num){	
+	// Mở khóa bộ nhớ Flash để cho phép ghi dữ liệu.
+	FLASH_Unlock();
+
+	// Tạo con trỏ 16 bit để xử lý dữ liệu từng nửa từ (half-word).
+	uint16_t *ptr = (uint16_t*)data;
+
+	// Lặp qua từng cặp byte (2 byte mỗi lần) và ghi vào bộ nhớ Flash.
+	for(int i=0; i<((num+1)/2); i++){
+		// Ghi 16 bit (half-word) vào địa chỉ cụ thể trong Flash.
+		FLASH_ProgramHalfWord(address+2*i, *ptr);
+		// Tăng con trỏ để trỏ đến cặp byte tiếp theo.
+		ptr++;
+	}
+
+	// Khóa lại bộ nhớ Flash sau khi hoàn thành ghi dữ liệu.
+	FLASH_Lock();
+}
+``` 
+**Để đọc data từ Flash, chỉ cần trả về nội dung tại địa chỉ cần đọc:**
+```
+// Hàm đọc một giá trị nguyên 16 bit từ bộ nhớ Flash. ( bộ nhớ flash 32bit)
+uint16_t Flash_ReadInt(uint32_t address){
+	// Mở khóa bộ nhớ Flash để đảm bảo có thể truy cập dữ liệu.
+	FLASH_Unlock();
+
+	// Đọc dữ liệu từ địa chỉ cụ thể và trả về giá trị dạng uint16_t.
+	return *(uint16_t *) (address);
+
+	// Khóa lại bộ nhớ Flash sau khi đọc xong để bảo vệ dữ liệu.
+	FLASH_Lock();
+}
+```
+**Hàm ReadFloat đọc về 4 byte dưới dạng 1 giá trị float:**
+``` 
+// Tạo biến tạm thời để lưu trữ dữ liệu dạng 32-bit.
+	uint32_t data;
+
+	// Đọc dữ liệu từ địa chỉ cụ thể dưới dạng 32-bit (4 byte).
+	data = *(__IO uint32_t*)(address);
+
+	// Ép kiểu dữ liệu 32-bit về float và trả về kết quả.
+	return *(float*)(&data);
+
+	// Khóa lại bộ nhớ Flash sau khi đọc xong để bảo vệ dữ liệu.
+	FLASH_Lock();
+}
+```
+**Hàm ReadNumByte đọc về 1 chuỗi các giá trị với kích thước 1 byte:**
+```
+void Flash_WriteNumByte(uint32_t address, uint8_t *data, int num) {
+    // Mở khóa FLASH để có thể ghi dữ liệu vào bộ nhớ FLASH
+    FLASH_Unlock();
+
+    // Chuyển đổi con trỏ data từ kiểu uint8_t* sang uint16_t* để xử lý từng từ 16-bit (2 byte)
+    uint16_t *ptr = (uint16_t*)data;
+
+    // Lặp qua các cặp byte trong mảng dữ liệu
+    for(int i = 0; i < ((num + 1) / 2); i++) { // Vòng lặp này sẽ chạy qua từng half-word của dữ liệu. Biến num là số lượng byte cần ghi. Mỗi vòng lặp sẽ ghi 2 byte (1 half-word), vì vậy cần chia num + 1 cho 2 để tính số lượng vòng lặp cần thiết. Cộng thêm 1 để đảm bảo rằng nếu số byte lẻ (ví dụ 3 byte), vòng lặp vẫn thực thi đủ.
+        FLASH_ProgramHalfWord(address + 2 * i, *ptr);  // Ghi một half-word vào địa chỉ address + 2 * i. Cộng thêm 2 * i để di chuyển đến vị trí ghi tiếp theo (vì mỗi half-word chiếm 2 byte). Dữ liệu được lấy từ *ptr, là giá trị half-word tại địa chỉ hiện tại của con trỏ ptr.
+	
+        // Di chuyển con trỏ ptr để trỏ tới giá trị half-word tiếp theo
+        ptr++;
+    }
+
+    // Khóa lại FLASH sau khi ghi xong
+    FLASH_Lock();
+}
+```
+Khi đó, quá trình Ghi bắt đầu với việc gọi hàm Flash_Erase với tham số là vùng nhớ cụ thể cần xóa. Sau đó có thể tùy chọn ghi dữ liệu bằng các hàm Write. Việc đọc thì đơn giản hơn, chỉ cần lấy ra giá trị bằng các hàm Read.
+
 
 
 
